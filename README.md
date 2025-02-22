@@ -1,4 +1,4 @@
-# ECDSA for [Your Package Manager]
+# ECDSA library for Motoko
 
 A fork of [herumi/ecdsa-motoko](https://github.com/herumi/ecdsa-motoko), providing ECDSA-SHA-256 implementation.
 
