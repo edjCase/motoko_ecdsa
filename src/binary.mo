@@ -9,7 +9,7 @@ module {
       buf.add((t % 2) == 1);
       t /= 2;
     };
-    buf.toArray()
+    Buffer.toArray(buf);
   };
   // getNAF
   public func toNafWidth(x_ : Int, w : Int) : [Int] {
@@ -48,6 +48,6 @@ module {
         i += 1;
       };
     };
-    naf.toArray()
+    Buffer.toArray(naf);
   };
-}
+};

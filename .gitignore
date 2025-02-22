@@ -1,7 +1,6 @@
 CVS
-test/.vessel
 test/*.wasm
 test/bench-gen*.mo
 test/bench-sign*.mo
-.vessel
 docs/
+.mops

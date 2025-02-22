@@ -10,7 +10,7 @@
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
-import SHA2 "mo:sha2";
+import Sha256 "mo:sha2/Sha256";
 
 module {
   public func hmac256(key : [Nat8], msg : Iter.Iter<Nat8>) : Blob {
@@ -19,7 +19,7 @@ module {
     var k : [var Nat8] = Array.init<Nat8>(64, 0);
     var keySize = key.size();
     if (keySize > 64) {
-      let md = Blob.toArray(SHA2.fromIter(#sha256, key.vals()));
+      let md = Blob.toArray(Sha256.fromIter(#sha256, key.vals()));
       var i = 0;
       keySize := 32;
       while (i < keySize) {
@@ -44,13 +44,13 @@ module {
         if (i < 64) {
           let ret = ?k[i];
           i += 1;
-          ret
+          ret;
         } else {
-          msg.next()
+          msg.next();
         };
       };
     };
-    let hmac = Blob.toArray(SHA2.fromIter(#sha256, k_and_msg(k, msg)));
+    let hmac = Blob.toArray(Sha256.fromIter(#sha256, k_and_msg(k, msg)));
     i := 0;
     while (i < 64) {
       k[i] ^= ipad ^ opad;
@@ -60,6 +60,6 @@ module {
       if (i < 64) k[i] else hmac[i - 64];
     };
     let cat = Array.tabulate<Nat8>(96, ith);
-    SHA2.fromIter(#sha256, cat.vals())
+    Sha256.fromIter(#sha256, cat.vals());
   };
 };

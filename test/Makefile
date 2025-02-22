@@ -1,17 +1,7 @@
-all: test.wasm
 
 .SUFFIXES: .wasm .mo
 
-test: test.wasm
-	wasmtime $<
-
-test-hmac: hmac-test.wasm
-	wasmtime $<
-
 TIME=time
-
-%.wasm: %.mo $(shell echo ../src/*.mo)
-	$(shell vessel bin)/moc $(shell vessel sources) --release -wasi-system-api -o $@ $<
 
 bench-gen10.mo: bench-gen.tmpl
 	sed 's/@@@/10/' < bench-gen.tmpl > bench-gen10.mo
