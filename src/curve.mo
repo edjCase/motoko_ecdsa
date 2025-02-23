@@ -7,8 +7,8 @@ import Buffer "mo:base/Buffer";
 import Int "mo:base/Int";
 
 module {
-  public type FpElt = { #fp : Nat; };
-  public type FrElt = { #fr : Nat; };
+  public type FpElt = { #fp : Nat };
+  public type FrElt = { #fr : Nat };
   public type Affine = (FpElt, FpElt);
   public type Point = { #zero; #affine : Affine };
 
@@ -18,17 +18,17 @@ module {
     a = #fp(0);
     b = #fp(7);
     g = (#fp(0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798), #fp(0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8));
-	  // rHalf_ = (r_ + 1) / 2;
-	  rHalf = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
+    // rHalf_ = (r_ + 1) / 2;
+    rHalf = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1;
 
-      // for GLV
-      B00 : Int = 0x3086d221a7d46bcde86c90e49284eb15;
-      B01 : Int = -0xe4437ed6010e88286f547fa90abfe4c3;
-      B10 : Int = 0x114ca50f7a8e2f3f657c1108d9d44cfd8;
-      rw = #fp(55594575648329892869085402983802832744385952214688224221778511981742606582254);
-      SHIFT256 : Int = 0x10000000000000000000000000000000000000000000000000000000000000000;
-      v0 : Int = 64502973549206556628585045361533709077;
-      v1 : Int = 303414439467246543595250775667605759172;
+    // for GLV
+    B00 : Int = 0x3086d221a7d46bcde86c90e49284eb15;
+    B01 : Int = -0xe4437ed6010e88286f547fa90abfe4c3;
+    B10 : Int = 0x114ca50f7a8e2f3f657c1108d9d44cfd8;
+    rw = #fp(55594575648329892869085402983802832744385952214688224221778511981742606582254);
+    SHIFT256 : Int = 0x10000000000000000000000000000000000000000000000000000000000000000;
+    v0 : Int = 64502973549206556628585045361533709077;
+    v1 : Int = 303414439467246543595250775667605759172;
 
   };
 
@@ -40,8 +40,8 @@ module {
   let pSqrRoot_ : Nat = 0x3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0c;
 
   public let Fp = {
-    fromNat = func (n : Nat) : FpElt = #fp(n % p_);
-    toNat = func (#fp(x) : FpElt) : Nat = x;
+    fromNat = func(n : Nat) : FpElt = #fp(n % p_);
+    toNat = func(#fp(x) : FpElt) : Nat = x;
     add = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(Field.add_(x, y, p_));
     mul = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(Field.mul_(x, y, p_));
     sub = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(Field.sub_(x, y, p_));
@@ -52,8 +52,8 @@ module {
     sqr = func(#fp(x) : FpElt) : FpElt = #fp(Field.sqr_(x, p_));
   };
   public let Fr = {
-    fromNat = func (n : Nat) : FrElt = #fr(n % r_);
-    toNat = func (#fr(x) : FrElt) : Nat = x;
+    fromNat = func(n : Nat) : FrElt = #fr(n % r_);
+    toNat = func(#fr(x) : FrElt) : Nat = x;
     add = func(#fr(x) : FrElt, #fr(y) : FrElt) : FrElt = #fr(Field.add_(x, y, r_));
     mul = func(#fr(x) : FrElt, #fr(y) : FrElt) : FrElt = #fr(Field.mul_(x, y, r_));
     sub = func(#fr(x) : FrElt, #fr(y) : FrElt) : FrElt = #fr(Field.sub_(x, y, r_));
@@ -67,12 +67,11 @@ module {
   // public only for testing
   public func fpSqrRoot(x : FpElt) : ?FpElt {
     let sq = Fp.pow(x, pSqrRoot_);
-    if (Fp.sqr(sq) == x) ?sq else null
+    if (Fp.sqr(sq) == x) ?sq else null;
   };
 
   // return x^3 + ax + b
-  func getYsqrFromX(x : FpElt) : FpElt =
-    Fp.add(Fp.mul(Fp.add(Fp.sqr(x), a_), x), b_);
+  func getYsqrFromX(x : FpElt) : FpElt = Fp.add(Fp.mul(Fp.add(Fp.sqr(x), a_), x), b_);
 
   /// Get y corresponding to x such that y^2 = x^ + ax + b.
   /// Return even y if `even` is true.
@@ -81,11 +80,11 @@ module {
     switch (fpSqrRoot(y2)) {
       case (null) null;
       case (?y) if (even == ((Fp.toNat(y) % 2) == 0)) ?y else ?Fp.neg(y);
-    }
+    };
   };
 
   // point functions
-  public func isValidAffine((x,y) : Affine) : Bool = Fp.sqr(y) == getYsqrFromX(x);
+  public func isValidAffine((x, y) : Affine) : Bool = Fp.sqr(y) == getYsqrFromX(x);
   public type Jacobi = (FpElt, FpElt, FpElt);
   public let zeroJ = (#fp(0), #fp(0), #fp(0));
   public let G_ = (params.g.0, params.g.1, #fp(1));
@@ -98,12 +97,12 @@ module {
     if (z == #fp(0)) return (x, y, z);
     let rz = Fp.inv(z);
     let rz2 = Fp.sqr(rz);
-    (Fp.mul(x, rz2), Fp.mul(Fp.mul(y, rz2), rz), #fp(1))
+    (Fp.mul(x, rz2), Fp.mul(Fp.mul(y, rz2), rz), #fp(1));
   };
   public func fromJacobi(a : Jacobi) : Point {
     let (x, y, z) = normalize(a);
     if (z == #fp(0)) return #zero;
-    #affine(x, y)
+    #affine(x, y);
   };
   // y^2 == x(x^2 + a z^4) + b z^6
   public func isValid((x, y, z) : Jacobi) : Bool {
@@ -117,7 +116,7 @@ module {
     z4 := Fp.mul(z4, z2);
     z4 := Fp.mul(z4, b_);
     t := Fp.add(t, z4);
-    y2 == t
+    y2 == t;
   };
   public func isEqual(P1 : Jacobi, P2 : Jacobi) : Bool {
     let zero1 = isZero(P1);
@@ -135,7 +134,7 @@ module {
     t2 := Fp.mul(y2, s1);
     t1 := Fp.mul(t1, z2);
     t2 := Fp.mul(t2, z1);
-    t1 == t2
+    t1 == t2;
   };
   public func neg((x, y, z) : Jacobi) : Jacobi = (x, Fp.neg(y), z);
   public func dbl((x, y, z) : Jacobi) : Jacobi {
@@ -146,7 +145,7 @@ module {
     xy := Fp.add(xy, xy);
     y2 := Fp.sqr(y2);
     xy := Fp.add(xy, xy);
-    assert(a_ == #fp(0));
+    assert (a_ == #fp(0));
     var t = Fp.add(x2, x2);
     x2 := Fp.add(x2, t);
     var rx = Fp.sqr(x2);
@@ -160,7 +159,7 @@ module {
     y2 := Fp.add(y2, y2);
     y2 := Fp.add(y2, y2);
     ry := Fp.sub(ry, y2);
-    (rx, ry, rz)
+    (rx, ry, rz);
   };
   public func add((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi {
     if (pz == #fp(0)) return (qx, qy, qz);
@@ -234,7 +233,7 @@ module {
     U1 := Fp.mul(U1, r);
     H3 := Fp.mul(H3, S1);
     ry := Fp.sub(U1, H3);
-    (rx, ry, rz)
+    (rx, ry, rz);
   };
   public func sub((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi = add((px, py, pz), (qx, Fp.neg(qy), qz));
   public func mul_old(a : Jacobi, #fr(x) : FrElt) : Jacobi {
@@ -248,17 +247,17 @@ module {
       if (b) ret := add(ret, a);
       i += 1;
     };
-    ret
+    ret;
   };
 
   func mulLambda((x, y, z) : Jacobi) : Jacobi = (Fp.mul(x, params.rw), y, z);
-  func split(x_ : Nat) : (Int,Int) {
+  func split(x_ : Nat) : (Int, Int) {
     let x = x_ : Int;
     let t = (x * params.v0) / params.SHIFT256;
     var b = (x * params.v1) / params.SHIFT256;
     let a = x - (t * params.B00 + b * params.B10);
     b := -(t * params.B01 + b * params.B00);
-    (a, b)
+    (a, b);
   };
   // splitN = 2, w = 5
   public func mul(x : Jacobi, #fr(y) : FrElt) : Jacobi {
@@ -309,10 +308,10 @@ module {
   public func mul_base(x : FrElt) : Jacobi = mul(G_, x);
   public func putPoint(a : Point) {
     switch (a) {
-      case(#zero) {
+      case (#zero) {
         Debug.print("0");
       };
-      case(#affine(x, y)) {
+      case (#affine(x, y)) {
         Debug.print("(" # Hex.fromNat(Fp.toNat(x)) # ", " # Hex.fromNat(Fp.toNat(y)) # ")");
       };
     };
@@ -322,4 +321,4 @@ module {
     Debug.print(" " # Hex.fromNat(Fp.toNat(y)) # ",");
     Debug.print(" " # Hex.fromNat(Fp.toNat(z)) # ")");
   };
-}
+};

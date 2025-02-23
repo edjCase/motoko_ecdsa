@@ -10,6 +10,8 @@ import Blob "mo:base/Blob";
 import Iter "mo:base/Iter";
 import Nat8 "mo:base/Nat8";
 import P "mo:base/Prelude";
+import Debug "mo:base/Debug";
+import { test } "mo:test";
 
 let p = C.params.p;
 
@@ -248,6 +250,37 @@ func serializeTest() {
     check(M.deserializePublicKeyCompressed(v2), C.toJacobi(#affine(pubNeg)));
   };
 };
+test(
+  "serializeTest",
+  func() {
+    let expected = Blob.fromArray([4, 228, 102, 142, 85, 72, 238, 90, 126, 125, 107, 192, 105, 239, 222, 189, 224, 62, 74, 10, 82, 251, 238, 40, 171, 1, 22, 77, 3, 60, 75, 99, 101, 56, 29, 135, 4, 109, 79, 143, 180, 231, 204, 243, 253, 52, 58, 250, 62, 218, 228, 155, 22, 27, 2, 64, 252, 62, 138, 51, 55, 165, 254, 142, 57]);
+    let pub = (#fp(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d), #fp(0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d));
+    let pubJ : C.Jacobi = C.toJacobi(#affine(pub));
+
+    let check = func(ret : ?M.PublicKey, expected : M.PublicKey) {
+      switch (ret) {
+        case (null) { assert (false) };
+        case (?pub) {
+          assert (C.isEqual(pub, expected));
+        };
+      };
+    };
+    do {
+      let a = M.deserializePublicKeyUncompressed(expected);
+      Debug.trap("a=" # debug_show (a));
+      let v = M.serializePublicKeyUncompressed(pub);
+      assert (v == expected);
+      check(M.deserializePublicKeyUncompressed(v), pubJ);
+    };
+    do {
+      let v = M.serializePublicKeyCompressed(pub);
+      check(M.deserializePublicKeyCompressed(v), pubJ);
+      let pubNeg = (pub.0, C.Fp.neg(pub.1));
+      let v2 = M.serializePublicKeyCompressed(pubNeg);
+      check(M.deserializePublicKeyCompressed(v2), C.toJacobi(#affine(pubNeg)));
+    };
+  },
+);
 
 func derTest() {
   let sig = (#fr(0xed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f), #fr(0x7a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed));
