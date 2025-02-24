@@ -51,7 +51,10 @@ module {
     let pSqrRoot_ = params.pSqrRoot;
 
     // Check if the curve supports GLV endomorphism
-    let hasGLV = params.kind == #secp256k1;
+    let hasGLV = switch (kind) {
+      case (#secp256k1) true;
+      case (#prime256v1) false;
+    };
 
     public let Fp = {
       fromNat = func(n : Nat) : FpElt = #fp(n % p_);
@@ -161,41 +164,49 @@ module {
     public func dbl((x, y, z) : Jacobi) : Jacobi {
       if (z == #fp(0)) return zeroJ;
 
+      // Special optimized formula for curves with a=-3 (like prime256v1)
+      // Uses complete formulas from https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html
+
       var x2 = Fp.sqr(x);
       var y2 = Fp.sqr(y);
-      var xy = Fp.mul(x, y2);
-      xy := Fp.add(xy, xy);
-      y2 := Fp.sqr(y2);
-      xy := Fp.add(xy, xy);
+      var z2 = Fp.sqr(z);
 
-      // Handle non-zero a parameter for curves like prime256v1
-      var t = if (a_ == #fp(0)) {
-        var t = Fp.add(x2, x2);
-        x2 := Fp.add(x2, t);
-        x2;
-      } else {
-        // General case for curves with non-zero a
-        var t = Fp.mul(Fp.sqr(z), z); // z³
-        t := Fp.mul(t, a_); // az³
-        t := Fp.add(Fp.mul(#fp(3), x2), t); // 3x² + az³
-        t;
+      // S = 4*x*y^2
+      var S = Fp.mul(x, y2);
+      S := Fp.add(S, S);
+      S := Fp.add(S, S);
+
+      // M = 3*x^2 + a*z^4
+      var M = Fp.add(x2, x2);
+      M := Fp.add(M, x2); // 3*x^2
+
+      if (a_ != #fp(0)) {
+        // For prime256v1, a = -3
+        var z4 = Fp.sqr(z2);
+        var az4 = Fp.mul(a_, z4);
+        M := Fp.add(M, az4); // 3*x^2 + a*z^4
       };
 
-      var rx = Fp.sqr(t);
-      rx := Fp.sub(rx, xy);
-      rx := Fp.sub(rx, xy);
+      // x' = M^2 - 2*S
+      var rx = Fp.sqr(M);
+      rx := Fp.sub(rx, S);
+      rx := Fp.sub(rx, S);
 
-      var rz : FpElt = if (z == #fp(1)) y else Fp.mul(y, z);
+      // y' = M*(S - x') - 8*y^4
+      var y4 = Fp.sqr(y2);
+      y4 := Fp.add(y4, y4);
+      y4 := Fp.add(y4, y4);
+      y4 := Fp.add(y4, y4); // 8*y^4
+
+      var ry = Fp.sub(S, rx); // S - x'
+      ry := Fp.mul(M, ry); // M*(S - x')
+      ry := Fp.sub(ry, y4); // M*(S - x') - 8*y^4
+
+      // z' = 2*y*z
+      var rz = Fp.mul(y, z);
       rz := Fp.add(rz, rz);
 
-      var ry = Fp.sub(xy, rx);
-      ry := Fp.mul(ry, t);
-      y2 := Fp.add(y2, y2);
-      y2 := Fp.add(y2, y2);
-      y2 := Fp.add(y2, y2);
-      ry := Fp.sub(ry, y2);
-
-      (rx, ry, rz);
+      return (rx, ry, rz);
     };
 
     public func add((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi {
@@ -281,27 +292,30 @@ module {
         return zeroJ;
       };
 
-      // Initialize result to the point at infinity
+      // Simple double-and-add algorithm with window optimization for larger scalars
       var result = zeroJ;
-      // Initialize doubling point to the input point
       var doubling = a;
-
-      // Process each bit of the scalar
       var scalar = k;
+
       while (scalar > 0) {
-        // If the current bit is 1, add the current doubling value
         if (scalar % 2 == 1) {
           result := add(result, doubling);
         };
-
-        // Double the doubling point
         doubling := dbl(doubling);
-
-        // Move to the next bit
         scalar /= 2;
       };
 
       return result;
+    };
+
+    public func hexPoint(p : Jacobi) : (Text, Text, Text) {
+      let (x, y, z) = normalize(p);
+      (Hex.fromNat(Fp.toNat(x)), Hex.fromNat(Fp.toNat(y)), Hex.fromNat(Fp.toNat(z)));
+    };
+
+    public func debugPoint(p : Jacobi) : (Nat, Nat, Nat) {
+      let (x, y, z) = normalize(p);
+      (Fp.toNat(x), Fp.toNat(y), Fp.toNat(z));
     };
 
     // GLV endomorphism functions - only used for secp256k1
@@ -368,31 +382,35 @@ module {
     };
 
     // Main multiplication function that chooses the appropriate algorithm
-    public func mul(x : Jacobi, #fr(k) : FrElt) : Jacobi {
+    public func mul(x : Jacobi, scalar : FrElt) : Jacobi {
+      let #fr(k) = scalar;
 
-      // Check if k represents a negative value in the field
-      // For prime fields, values greater than r/2 typically represent negative values
+      // Handle special cases
+      if (k == 0 or isZero(x)) {
+        return zeroJ;
+      };
+
+      // Check if scalar represents a negative value (greater than r/2)
       let isNegative = k > params.rHalf;
 
       if (isNegative) {
-        // Calculate the positive equivalent of this scalar value
+        // Use the negated scalar value and negate the result
         let positiveK = #fr(r_ - k : Nat);
 
-        // Calculate P * |k| and then negate the result
+        // Use appropriate algorithm based on curve type
         let result = if (hasGLV) {
           mul_glv(x, positiveK);
         } else {
           mul_standard(x, positiveK);
         };
 
-        // Return the negation of the result
         return neg(result);
       } else {
-        // Regular case - just use the appropriate multiplication algorithm
+        // Use appropriate algorithm based on curve type
         if (hasGLV) {
-          return mul_glv(x, #fr(k));
+          return mul_glv(x, scalar);
         } else {
-          return mul_standard(x, #fr(k));
+          return mul_standard(x, scalar);
         };
       };
     };

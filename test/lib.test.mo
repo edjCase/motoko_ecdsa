@@ -19,16 +19,70 @@ let curveKinds : [Curve.CurveKind] = [
 ];
 for (curveKind in curveKinds.vals()) {
 
-  let (okP1, okP2, okP3) = switch (curveKind) {
+  let (okP1, okP2, okP3, okP4, okP5) = switch (curveKind) {
     case (#secp256k1) (
-      (#fp(0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798), #fp(0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8), #fp(1)),
-      (#fp(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5), #fp(0x1ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a), #fp(1)),
-      (#fp(0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9), #fp(0x388f7b0f632de8140fe337e62a37f3566500a99934c2231b6cb9fd7584b8e672), #fp(1)),
+      // Base point G
+      (
+        #fp(0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798),
+        #fp(0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8),
+        #fp(1),
+      ),
+      // 2G
+      (
+        #fp(0xc6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5),
+        #fp(0x1ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a),
+        #fp(1),
+      ),
+      // 3G
+      (
+        #fp(0xf9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9),
+        #fp(0x388f7b0f632de8140fe337e62a37f3566500a99934c2231b6cb9fd7584b8e672),
+        #fp(1),
+      ),
+      // 4G
+      (
+        #fp(0xe493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13),
+        #fp(0x51ed993ea0d455b75642e2098ea51448d967ae33bfbdfe40cfe97bdc47739922),
+        #fp(1),
+      ),
+      // 5G
+      (
+        #fp(0x2f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4),
+        #fp(0xd8ac222636e5e3d6d4dba9dda6c9c426f788271bab0d6840dca87d3aa6ac62d6),
+        #fp(1),
+      ),
     );
     case (#prime256v1) (
-      (#fp(0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296), #fp(0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5), #fp(1)),
-      (#fp(0x7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978), #fp(0x07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1), #fp(1)),
-      (#fp(0x5ecbe4d1a6330a44c8f7ef951d4bf165e6c6b721efada985fb41661bc6e7fd6c), #fp(0x8734640c4998ff7e374b06ce1a64a2ecd82ab036384fb83d9a79b127a27d5032), #fp(1)),
+      // Base point G for NIST P-256 (prime256v1)
+      (
+        #fp(0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296),
+        #fp(0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5),
+        #fp(1),
+      ),
+      // 2G
+      (
+        #fp(0x7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978),
+        #fp(0x07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1),
+        #fp(1),
+      ),
+      // 3G
+      (
+        #fp(0x5ecbe4d1a6330a44c8f7ef951d4bf165e6c6b721efada985fb41661bc6e7fd6c),
+        #fp(0x8734640c4998ff7e374b06ce1a64a2ecd82ab036384fb83d9a79b127a27d5032),
+        #fp(1),
+      ),
+      // 4G - CORRECT NIST value
+      (
+        #fp(0xe2534a3532d08fbba02dde659ee62bd0031fe2db785596ef509302446b030852),
+        #fp(0xe0f1575a4c633cc719dfee5fda862d764efc96c3f30ee0055c42c23f184ed8c6),
+        #fp(1),
+      ),
+      // 5G - CORRECT NIST value
+      (
+        #fp(0x51590b7a515140d2d784c85608668fdfef8c82fd1f5be52421554a0dc3d033ed),
+        #fp(0xe0c17da8904a727d8ae1bf36bf8a79260d012f00d4d80888d1d0bb44fda16da4),
+        #fp(1),
+      ),
     );
   };
 
@@ -354,34 +408,43 @@ for (curveKind in curveKinds.vals()) {
           assert (C.isZero(C.add(P, Q)));
         },
       );
-
       test(
-        "ec2Teset",
+        "ec2Test",
         func() {
           let P = C.G_;
 
+          // Test base point correctness
+          assert (C.isValid(P));
           assert (C.isEqual(P, okP1));
 
+          // Test doubling and addition
           let P2 = C.dbl(P);
-
-          assert (C.isEqual(C.dbl(P), okP2));
+          assert (C.isEqual(P2, okP2));
           assert (C.isEqual(C.add(P, P), okP2));
 
           let P3 = C.add(P2, P);
-
           assert (C.isEqual(P3, okP3));
 
           let P4 = C.add(P3, P);
+          assert (C.isEqual(P4, okP4));
 
           let P5 = C.add(P4, P);
+
+          // Test scalar multiplication
           assert (C.isZero(C.add(P, C.neg(P))));
           assert (C.isEqual(C.dbl(P), P2));
           assert (C.isEqual(C.mul(P, #fr(1)), P));
           assert (C.isEqual(C.mul(P, #fr(2)), P2));
           assert (C.isEqual(C.mul(P, #fr(3)), P3));
+
+          // Debug the multiplication for 4G specifically
+          let mul4G = C.mul(P, #fr(4));
+          assert (C.isEqual(mul4G, P4));
+
           assert (C.isEqual(C.mul(P, #fr(4)), P4));
           assert (C.isEqual(C.mul(P, #fr(5)), P5));
 
+          // Continue with other assertions
           let Q = C.mul(P, C.Fr.fromNat(C.params.r - 1));
           assert (C.isEqual(Q, C.neg(P)));
           assert (C.isZero(C.add(Q, P)));
