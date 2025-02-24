@@ -23,28 +23,34 @@ module {
     kind : CurveKind;
   };
 
+  // GLV endomorphism constants specifically for secp256k1
+  private let GLV_CONSTANTS = {
+    B00 : Int = 0x3086d221a7d46bcde86c90e49284eb15;
+    B01 : Int = -0xe4437ed6010e88286f547fa90abfe4c3;
+    B10 : Int = 0x114ca50f7a8e2f3f657c1108d9d44cfd8;
+    rw = #fp(55594575648329892869085402983802832744385952214688224221778511981742606582254);
+    SHIFT256 : Int = 0x10000000000000000000000000000000000000000000000000000000000000000;
+    v0 : Int = 64502973549206556628585045361533709077;
+    v1 : Int = 303414439467246543595250775667605759172;
+  };
+
   public type Jacobi = (FpElt, FpElt, FpElt);
 
   public type CurveKind = {
     #secp256k1;
     #prime256v1;
   };
-  let B00 : Int = 0x3086d221a7d46bcde86c90e49284eb15;
-  let B01 : Int = -0xe4437ed6010e88286f547fa90abfe4c3;
-  let B10 : Int = 0x114ca50f7a8e2f3f657c1108d9d44cfd8;
-  let rw = #fp(55594575648329892869085402983802832744385952214688224221778511981742606582254);
-  let SHIFT256 : Int = 0x10000000000000000000000000000000000000000000000000000000000000000;
-  let v0 : Int = 64502973549206556628585045361533709077;
-  let v1 : Int = 303414439467246543595250775667605759172;
 
   public class Curve(kind : CurveKind) {
-
-    let params : CurveParams = getParams(kind);
+    public let params : CurveParams = getParams(kind);
     let p_ = params.p;
     let r_ = params.r;
     let a_ = params.a;
     let b_ = params.b;
     let pSqrRoot_ = params.pSqrRoot;
+
+    // Check if the curve supports GLV endomorphism
+    let hasGLV = params.kind == #secp256k1;
 
     public let Fp = {
       fromNat = func(n : Nat) : FpElt = #fp(n % p_);
@@ -72,13 +78,13 @@ module {
       sqr = func(#fr(x) : FrElt) : FrElt = #fr(Field.sqr_(x, r_));
     };
 
-    func fpSqrRoot(x : FpElt) : ?FpElt {
+    public func fpSqrRoot(x : FpElt) : ?FpElt {
       let sq = Fp.pow(x, pSqrRoot_);
       if (Fp.sqr(sq) == x) ?sq else null;
     };
 
     // return x^3 + ax + b
-    func getYsqrFromX(x : FpElt) : FpElt = Fp.add(Fp.mul(Fp.add(Fp.sqr(x), a_), x), b_);
+    public func getYsqrFromX(x : FpElt) : FpElt = Fp.add(Fp.mul(Fp.add(Fp.sqr(x), a_), x), b_);
 
     /// Get y corresponding to x such that y^2 = x^ + ax + b.
     /// Return even y if `even` is true.
@@ -90,12 +96,11 @@ module {
       };
     };
 
-    // point functions
     public func isValidAffine((x, y) : Affine) : Bool = Fp.sqr(y) == getYsqrFromX(x);
 
     public let G_ = (params.g.0, params.g.1, #fp(1));
 
-    let zeroJ = (#fp(0), #fp(0), #fp(0));
+    public let zeroJ = (#fp(0), #fp(0), #fp(0));
 
     public func isZero((_, _, z) : Jacobi) : Bool = z == #fp(0);
 
@@ -117,7 +122,6 @@ module {
       #affine(x, y);
     };
 
-    // y^2 == x(x^2 + a z^4) + b z^6
     public func isValid((x, y, z) : Jacobi) : Bool {
       let x2 = Fp.sqr(x);
       let y2 = Fp.sqr(y);
@@ -155,30 +159,46 @@ module {
 
     public func dbl((x, y, z) : Jacobi) : Jacobi {
       if (z == #fp(0)) return zeroJ;
+
       var x2 = Fp.sqr(x);
       var y2 = Fp.sqr(y);
       var xy = Fp.mul(x, y2);
       xy := Fp.add(xy, xy);
       y2 := Fp.sqr(y2);
       xy := Fp.add(xy, xy);
-      assert (a_ == #fp(0));
-      var t = Fp.add(x2, x2);
-      x2 := Fp.add(x2, t);
-      var rx = Fp.sqr(x2);
+
+      // Handle non-zero a parameter for curves like prime256v1
+      var t = if (a_ == #fp(0)) {
+        var t = Fp.add(x2, x2);
+        x2 := Fp.add(x2, t);
+        x2;
+      } else {
+        // General case for curves with non-zero a
+        var t = Fp.mul(Fp.sqr(z), z); // z³
+        t := Fp.mul(t, a_); // az³
+        t := Fp.add(Fp.mul(#fp(3), x2), t); // 3x² + az³
+        t;
+      };
+
+      var rx = Fp.sqr(t);
       rx := Fp.sub(rx, xy);
       rx := Fp.sub(rx, xy);
+
       var rz : FpElt = if (z == #fp(1)) y else Fp.mul(y, z);
       rz := Fp.add(rz, rz);
+
       var ry = Fp.sub(xy, rx);
-      ry := Fp.mul(ry, x2);
+      ry := Fp.mul(ry, t);
       y2 := Fp.add(y2, y2);
       y2 := Fp.add(y2, y2);
       y2 := Fp.add(y2, y2);
       ry := Fp.sub(ry, y2);
+
       (rx, ry, rz);
     };
 
     public func add((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi {
+      // ... add function remains unchanged ...
       if (pz == #fp(0)) return (qx, qy, qz);
       if (qz == #fp(0)) return (px, py, pz);
       let isPzOne = pz == #fp(1);
@@ -255,7 +275,9 @@ module {
 
     public func sub((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi = add((px, py, pz), (qx, Fp.neg(qy), qz));
 
-    public func mul_old(a : Jacobi, #fr(x) : FrElt) : Jacobi {
+    // Standard double-and-add multiplication algorithm
+    // Works for all curves
+    public func mul_standard(a : Jacobi, #fr(x) : FrElt) : Jacobi {
       let bs = Binary.fromNatReversed(x);
       let n = bs.size();
       var ret = zeroJ;
@@ -269,19 +291,25 @@ module {
       ret;
     };
 
-    func mulLambda((x, y, z) : Jacobi) : Jacobi = (Fp.mul(x, rw), y, z);
+    // GLV endomorphism functions - only used for secp256k1
+    func mulLambda((x, y, z) : Jacobi) : Jacobi {
+      assert (hasGLV); // Only valid for secp256k1
+      (Fp.mul(x, GLV_CONSTANTS.rw), y, z);
+    };
 
     func split(x_ : Nat) : (Int, Int) {
+      assert (hasGLV); // Only valid for secp256k1
       let x = x_ : Int;
-      let t = (x * v0) / SHIFT256;
-      var b = (x * v1) / SHIFT256;
-      let a = x - (t * B00 + b * B10);
-      b := -(t * B01 + b * B00);
+      let t = (x * GLV_CONSTANTS.v0) / GLV_CONSTANTS.SHIFT256;
+      var b = (x * GLV_CONSTANTS.v1) / GLV_CONSTANTS.SHIFT256;
+      let a = x - (t * GLV_CONSTANTS.B00 + b * GLV_CONSTANTS.B10);
+      b := -(t * GLV_CONSTANTS.B01 + b * GLV_CONSTANTS.B00);
       (a, b);
     };
 
-    // splitN = 2, w = 5
-    public func mul(x : Jacobi, #fr(y) : FrElt) : Jacobi {
+    // Optimized multiplication using GLV endomorphism (only for secp256k1)
+    func mul_glv(x : Jacobi, #fr(y) : FrElt) : Jacobi {
+      assert (hasGLV);
       let w = 5;
       let tblSize : Nat = 2 ** (w - 2);
       let u = split(y);
@@ -326,6 +354,17 @@ module {
       z;
     };
 
+    // Main multiplication function that chooses the appropriate algorithm
+    public func mul(x : Jacobi, k : FrElt) : Jacobi {
+      if (hasGLV) {
+        // Use optimized GLV multiplication for secp256k1
+        mul_glv(x, k);
+      } else {
+        // Use standard double-and-add for other curves
+        mul_standard(x, k);
+      };
+    };
+
     public func mul_base(x : FrElt) : Jacobi = mul(G_, x);
 
     public func putPoint(a : Point) {
@@ -361,7 +400,6 @@ module {
         pSqrRoot = 0x3fffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffff0c;
         kind = kind;
       });
-      //TODO: add prime256v1 compiled params
       case (#prime256v1) ({
         p = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff;
         r = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551;
@@ -375,8 +413,6 @@ module {
         pSqrRoot = 0x3fffffffc0000000400000000000000000000000400000000000000000000000;
         kind = kind;
       });
-    }
-
+    };
   };
-
 };

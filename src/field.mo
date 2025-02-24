@@ -1,22 +1,21 @@
 import IntExt "intext";
 import Binary "binary";
 import Int "mo:base/Int";
-import Buffer "mo:base/Buffer";
 
 module {
   public func inv_(x : Nat, n : Nat) : Nat {
     let (gcd, rev, _) = IntExt.extGcd(x, n);
-    assert(gcd == 1);
-    let v = if (rev < 0) rev+n else rev;
-    assert(0 <= v and v < n);
-    Int.abs(v)
+    assert (gcd == 1);
+    let v = if (rev < 0) rev + n else rev;
+    assert (0 <= v and v < n);
+    Int.abs(v);
   };
   public func add_(x : Nat, y : Nat, n : Nat) : Nat {
-    let z = x+y;
-    if (z < n) z else z-n;
+    let z = x + y;
+    if (z < n) z else z - n;
   };
   public func mul_(x : Nat, y : Nat, n : Nat) : Nat = (x * y) % n;
-  public func sub_(x : Nat, y : Nat, n : Nat) : Nat = if (x >= y) x-y else x+n-y;
+  public func sub_(x : Nat, y : Nat, n : Nat) : Nat = if (x >= y) x - y else x + n - y;
   public func div_(x : Nat, y : Nat, n : Nat) : Nat = (x * inv_(y, n)) % n;
   public func neg_(x : Nat, n : Nat) : Nat = if (x == 0) 0 else n - x;
   public func pow_(x : Nat, y : Nat, n : Nat) : Nat {
@@ -31,7 +30,7 @@ module {
       if (b) ret := mul_(ret, x, n);
       i += 1;
     };
-    ret
+    ret;
   };
   public func sqr_(x : Nat, n : Nat) : Nat = mul_(x, x, n);
 
@@ -45,4 +44,4 @@ module {
     public func inv(x : Nat) : Nat = inv_(x, n);
     public func sqr(x : Nat) : Nat = sqr_(x, n);
   };
-}
+};
