@@ -429,9 +429,11 @@ module {
     };
 
     public func putJacobi((x, y, z) : Jacobi) {
-      Debug.print("(" # Hex.fromNat(Fp.toNat(x)) # ",");
-      Debug.print(" " # Hex.fromNat(Fp.toNat(y)) # ",");
-      Debug.print(" " # Hex.fromNat(Fp.toNat(z)) # ")");
+      Debug.print("(0x" # Hex.fromNat(Fp.toNat(x)) # ", 0x" # Hex.fromNat(Fp.toNat(y)) # ", 0x" # Hex.fromNat(Fp.toNat(z)) # ")");
+    };
+
+    public func putSig((x, y) : (FrElt, FrElt)) {
+      Debug.print("(0x" # Hex.fromNat(Fr.toNat(x)) # ", 0x" # Hex.fromNat(Fr.toNat(y)) # ")");
     };
   };
 

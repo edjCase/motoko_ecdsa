@@ -12,6 +12,7 @@ import P "mo:base/Prelude";
 import Debug "mo:base/Debug";
 import Array "mo:base/Array";
 import { test; suite } "mo:test";
+import Hex "../src/hex";
 
 let curveKinds : [Curve.CurveKind] = [
   #secp256k1,
@@ -460,66 +461,124 @@ for (curveKind in curveKinds.vals()) {
           let hashed : [Nat8] = [0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24];
           assert (Blob.toArray(M.sha2(hello.vals())) == hashed);
 
+          let secBytes : [Nat8] = [0x83, 0xec, 0xb3, 0x98, 0x4a, 0x4f, 0x9f, 0xf0, 0x3e, 0x84, 0xd5, 0xf9, 0xc0, 0xd7, 0xf8, 0x88, 0xa8, 0x18, 0x33, 0x64, 0x30, 0x47, 0xac, 0xc5, 0x8e, 0xb6, 0x43, 0x1e, 0x01, 0xd9, 0xba, 0xc8];
+          let expectedSecKey = #fr(0x83ecb3984a4f9ff03e84d5f9c0d7f888a81833643047acc58eb6431e01d9bac8);
+          let randBytes : [Nat8] = [0x8a, 0xfa, 0x4a, 0x16, 0x2b, 0x7b, 0xad, 0x6c, 0x92, 0xff, 0x14, 0xf3, 0xa8, 0xbf, 0x4d, 0xb0, 0xf3, 0xc3, 0x9e, 0x90, 0xc0, 0x6f, 0x93, 0x78, 0x61, 0xf8, 0x23, 0xd2, 0x99, 0x5c, 0x74, 0xf0];
           do {
-            let secBytes : [Nat8] = [0x83, 0xec, 0xb3, 0x98, 0x4a, 0x4f, 0x9f, 0xf0, 0x3e, 0x84, 0xd5, 0xf9, 0xc0, 0xd7, 0xf8, 0x88, 0xa8, 0x18, 0x33, 0x64, 0x30, 0x47, 0xac, 0xc5, 0x8e, 0xb6, 0x43, 0x1e, 0x01, 0xd9, 0xba, 0xc8];
+            // Define test vectors for each curve
+            let (expectedPubKey, expectedSig) = switch (curveKind) {
+              case (#secp256k1) (
+                (#fp(0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71), #fp(0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a), #fp(1)),
+                (#fr(0xa598a8030da6d86c6bc7f2f5144ea549d28211ea58faa70ebf4c1e665c1fe9b5), #fr(0xde5d79a2ba44e311d04fdca263639283965780bce9169822be9cc81756e95a24)),
+              );
+              case (#prime256v1) (
+                (#fp(0xdda42ea71acbf585783d9b9d1890f79633975165b91b1a205ae4cadacaa1cf68), #fp(0x194e239b3852413d0fd648f22ad5f0fd80b77961c15a151fa9f957b6f17a854a), #fp(0x392fb19f4071d67a63cd796286885ca8a3df2668f6da14846d607195ca4a25f2)),
+                (#fr(0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa), #fr(0x47eda72670efd34132e0d1f0ed4cb581f7b754c9232591d9c0a78fa53b5680bf)),
+              );
+            };
+
             let sec = switch (M.getSecretKey(C, secBytes.vals())) {
               case (null) P.unreachable();
               case (?v) v;
             };
-            assert (sec == #non_zero(#fr(0x83ecb3984a4f9ff03e84d5f9c0d7f888a81833643047acc58eb6431e01d9bac8)));
-            let pub = M.getPublicKey(C, sec);
-            assert (C.isEqual(pub, (#fp(0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71), #fp(0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a), #fp(1))));
 
-            let rand : [Nat8] = [0x8a, 0xfa, 0x4a, 0x16, 0x2b, 0x7b, 0xad, 0x6c, 0x92, 0xff, 0x14, 0xf3, 0xa8, 0xbf, 0x4d, 0xb0, 0xf3, 0xc3, 0x9e, 0x90, 0xc0, 0x6f, 0x93, 0x78, 0x61, 0xf8, 0x23, 0xd2, 0x99, 0x5c, 0x74, 0xf0];
-            let sig = switch (M.signHashed(C, sec, hashed.vals(), rand.vals())) {
+            assert (sec == #non_zero(expectedSecKey));
+
+            let pub = M.getPublicKey(C, sec);
+            assert (C.isEqual(pub, expectedPubKey));
+
+            let sig = switch (M.signHashed(C, sec, hashed.vals(), randBytes.vals())) {
               case (null) P.unreachable();
               case (?v) v;
             };
+
             assert (M.verifyHashed(C, pub, hashed.vals(), sig));
             assert (not M.verifyHashed(C, (pub.0, C.Fp.add(pub.1, #fp(1)), #fp(1)), hashed.vals(), sig));
             assert (not M.verifyHashed(C, pub, ([0x1, 0x2] : [Nat8]).vals(), sig));
-            assert (M.sign(C, sec, hello.vals(), rand.vals()) == ?sig);
+            assert (M.sign(C, sec, hello.vals(), randBytes.vals()) == ?sig);
             assert (M.verifyHashed(C, pub, hashed.vals(), sig));
 
-            let sig2 = M.normalizeSignature(C, (#fr(0xa598a8030da6d86c6bc7f2f5144ea549d28211ea58faa70ebf4c1e665c1fe9b5), #fr(0xde5d79a2ba44e311d04fdca263639283965780bce9169822be9cc81756e95a24)));
+            let sig2 = M.normalizeSignature(C, expectedSig);
             assert (M.verify(C, pub, hello.vals(), sig2));
           };
+        },
+      );
 
-          // generated values by Python:ecdsa
-          do {
-            let sec = #non_zero(#fr(0xb1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2));
-            let pub = M.getPublicKey(C, sec);
-            assert (C.isEqual(pub, (#fp(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d), #fp(0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d), #fp(1))));
-            let sig = M.normalizeSignature(C, (#fr(0x50839a97404c24ec39455b996e4888477fd61bcf0ffb960c7ffa3bef10450191), #fr(0x9671b8315bb5c1611d422d49cbbe7e80c6b463215bfad1c16ca73172155bf31a)));
-            assert (M.verifyHashed(C, pub, hashed.vals(), sig));
+      test(
+        "ecdsaTest2",
+        func() {
+          // sha256('hello')
+          let hashed : [Nat8] = [0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24];
+
+          let secretKeyVal = #fr(0xb1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2);
+
+          // Test vectors from Python:ecdsa for both curves
+          let (expectedPubKey, sigR, sigS) = switch (curveKind) {
+            case (#secp256k1) (
+              (
+                #fp(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d),
+                #fp(0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d),
+                #fp(1),
+              ),
+              0x50839a97404c24ec39455b996e4888477fd61bcf0ffb960c7ffa3bef10450191,
+              0x9671b8315bb5c1611d422d49cbbe7e80c6b463215bfad1c16ca73172155bf31a,
+            );
+            case (#prime256v1) (
+              (
+                #fp(0xb9181ec1c103c4621f7dac602dc2c9f2648f4906592bddaf56f3ca32fb196dbc),
+                #fp(0x776fd0bf72a4116bd0d75da24a479b019655b61d3cfd6443407afddd5e9cde2b),
+                #fp(0x6232c6225e77e751a8778a46a119060279b661b35b7c8b90e842109f33409f65),
+              ),
+              0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa,
+              0x8714550e18c194fd1d4a2a22a1c3077b64c7acbceb7d111a25d08dfd14c98a3,
+            );
           };
+
+          let sec = #non_zero(secretKeyVal);
+          let pub = M.getPublicKey(C, sec);
+
+          // Verify public key
+          assert (C.isEqual(pub, expectedPubKey));
+
+          // Verify signature
+          let sig = M.normalizeSignature(C, (#fr(sigR), #fr(sigS)));
+          assert (M.verifyHashed(C, pub, hashed.vals(), sig));
         },
       );
 
       test(
         "serializeTest",
         func() {
-          let expected = Blob.fromArray([0x04, 0xa, 0x9, 0xff, 0x14, 0x2d, 0x94, 0xbc, 0x3f, 0x56, 0xc5, 0xc8, 0x1b, 0x75, 0xea, 0x3b, 0x6, 0xb0, 0x82, 0xc5, 0x26, 0x3f, 0xbb, 0x5b, 0xd8, 0x8c, 0x61, 0x9f, 0xc6, 0x39, 0x3d, 0xda, 0x3d, 0xa5, 0x3e, 0xe, 0x93, 0x8, 0x92, 0xcd, 0xb7, 0x79, 0x9e, 0xea, 0x8f, 0xd4, 0x5b, 0x9f, 0xff, 0x37, 0x7d, 0x83, 0x8f, 0x41, 0x6, 0x45, 0x42, 0x89, 0xae, 0x8a, 0x8, 0xb, 0x11, 0x1f, 0x8d]);
-          let pub = (#fp(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d), #fp(0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d));
-          let pubJ : Curve.Jacobi = C.toJacobi(#affine(pub));
+          let (expectedBytes, pubAffine) : ([Nat8], (Curve.FpElt, Curve.FpElt)) = switch (curveKind) {
+            case (#secp256k1) (
+              [0x04, 0xa, 0x9, 0xff, 0x14, 0x2d, 0x94, 0xbc, 0x3f, 0x56, 0xc5, 0xc8, 0x1b, 0x75, 0xea, 0x3b, 0x6, 0xb0, 0x82, 0xc5, 0x26, 0x3f, 0xbb, 0x5b, 0xd8, 0x8c, 0x61, 0x9f, 0xc6, 0x39, 0x3d, 0xda, 0x3d, 0xa5, 0x3e, 0xe, 0x93, 0x8, 0x92, 0xcd, 0xb7, 0x79, 0x9e, 0xea, 0x8f, 0xd4, 0x5b, 0x9f, 0xff, 0x37, 0x7d, 0x83, 0x8f, 0x41, 0x6, 0x45, 0x42, 0x89, 0xae, 0x8a, 0x8, 0xb, 0x11, 0x1f, 0x8d],
+              (#fp(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d), #fp(0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d)),
+            );
+            case (#prime256v1) (
+              [0x04, 0xE4, 0x66, 0x8E, 0x55, 0x48, 0xEE, 0x5A, 0x7E, 0x7D, 0x6B, 0xC0, 0x69, 0xEF, 0xDE, 0xBD, 0xE0, 0x3E, 0x4A, 0x0A, 0x52, 0xFB, 0xEE, 0x28, 0xAB, 0x01, 0x16, 0x4D, 0x03, 0x3C, 0x4B, 0x63, 0x65, 0x38, 0x1D, 0x87, 0x04, 0x6D, 0x4F, 0x8F, 0xB4, 0xE7, 0xCC, 0xF3, 0xFD, 0x34, 0x3A, 0xFA, 0x3E, 0xDA, 0xE4, 0x9B, 0x16, 0x1B, 0x02, 0x40, 0xFC, 0x3E, 0x8A, 0x33, 0x37, 0xA5, 0xFE, 0x8E, 0x39],
+              (#fp(0xe4668e5548ee5a7e7d6bc069efdebde03e4a0a52fbee28ab01164d033c4b6365), #fp(0x381d87046d4f8fb4e7ccf3fd343afa3edae49b161b0240fc3e8a3337a5fe8e39)),
+            );
+          };
+          let expected = Blob.fromArray(expectedBytes);
+          let pubJ : Curve.Jacobi = C.toJacobi(#affine(pubAffine));
 
-          let check = func(ret : ?M.PublicKey, expected : M.PublicKey) {
-            switch (ret) {
+          let check = func(actualPubKey : ?M.PublicKey, expectedPubKey : M.PublicKey) {
+            switch (actualPubKey) {
               case (null) { assert (false) };
-              case (?pub) {
-                assert (C.isEqual(pub, expected));
+              case (?actualPubKey) {
+                assert (C.isEqual(actualPubKey, expectedPubKey));
               };
             };
           };
           do {
-            let v = M.serializePublicKeyUncompressed(C, pub);
+            let v = M.serializePublicKeyUncompressed(C, pubAffine);
             assert (v == expected);
             check(M.deserializePublicKeyUncompressed(C, v), pubJ);
           };
           do {
-            let v = M.serializePublicKeyCompressed(C, pub);
+            let v = M.serializePublicKeyCompressed(C, pubAffine);
             check(M.deserializePublicKeyCompressed(C, v), pubJ);
-            let pubNeg = (pub.0, C.Fp.neg(pub.1));
+            let pubNeg = (pubAffine.0, C.Fp.neg(pubAffine.1));
             let v2 = M.serializePublicKeyCompressed(C, pubNeg);
             check(M.deserializePublicKeyCompressed(C, v2), C.toJacobi(#affine(pubNeg)));
           };
