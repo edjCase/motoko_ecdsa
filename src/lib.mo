@@ -183,7 +183,7 @@ module {
     Blob.fromArrayMut(va);
   };
   /// deserialize DER to signature
-  public func deserializeSignatureDer(curve : Curve.Curve, b : Blob) : ?Signature {
+  public func deserializeSignatureDer(b : Blob) : ?Signature {
     let a = Blob.toArray(b);
     if (a.size() <= 2 or a[0] != 0x30) return null;
     if (a.size() != Nat8.toNat(a[1]) + 2) return null;
@@ -201,7 +201,6 @@ module {
         v := v * 256 + Nat8.toNat(a[begin + 2 + i]);
         i += 1;
       };
-      if (v >= curve.params.r) return null;
       ?(n + 2, v);
     };
     return switch (read(a, 2)) {
@@ -216,5 +215,24 @@ module {
         };
       };
     };
+  };
+
+  public func deserializeSignatureRaw(signatureBlob : Blob) : ?Signature {
+    let signatureBytes = Blob.toArray(signatureBlob);
+
+    // JWT ECDSA signatures are 64 bytes - 32 bytes for r and 32 bytes for s
+    if (signatureBytes.size() != 64) {
+      return null;
+    };
+
+    // Extract r and s values
+    let rBytes = Array.subArray(signatureBytes, 0, 32);
+    let sBytes = Array.subArray(signatureBytes, 32, 32);
+
+    let r = Util.toNatAsBigEndian(rBytes.vals());
+    let s = Util.toNatAsBigEndian(sBytes.vals());
+
+    // Return as Curve.FrElt values
+    ?(#fr(r), #fr(s));
   };
 };

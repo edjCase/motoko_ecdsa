@@ -9,10 +9,7 @@ import Blob "mo:base/Blob";
 import Iter "mo:base/Iter";
 import Nat8 "mo:base/Nat8";
 import P "mo:base/Prelude";
-import Debug "mo:base/Debug";
-import Array "mo:base/Array";
 import { test; suite } "mo:test";
-import Hex "../src/hex";
 
 let curveKinds : [Curve.CurveKind] = [
   #secp256k1,
@@ -20,7 +17,7 @@ let curveKinds : [Curve.CurveKind] = [
 ];
 for (curveKind in curveKinds.vals()) {
 
-  let (okP1, okP2, okP3, okP4, okP5) = switch (curveKind) {
+  let (okP1, okP2, okP3, okP4) = switch (curveKind) {
     case (#secp256k1) (
       // Base point G
       (
@@ -44,12 +41,6 @@ for (curveKind in curveKinds.vals()) {
       (
         #fp(0xe493dbf1c10d80f3581e4904930b1404cc6c13900ee0758474fa94abe8c4cd13),
         #fp(0x51ed993ea0d455b75642e2098ea51448d967ae33bfbdfe40cfe97bdc47739922),
-        #fp(1),
-      ),
-      // 5G
-      (
-        #fp(0x2f8bde4d1a07209355b4a7250a5c5128e88b84bddc619ab7cba8d569b240efe4),
-        #fp(0xd8ac222636e5e3d6d4dba9dda6c9c426f788271bab0d6840dca87d3aa6ac62d6),
         #fp(1),
       ),
     );
@@ -76,12 +67,6 @@ for (curveKind in curveKinds.vals()) {
       (
         #fp(0xe2534a3532d08fbba02dde659ee62bd0031fe2db785596ef509302446b030852),
         #fp(0xe0f1575a4c633cc719dfee5fda862d764efc96c3f30ee0055c42c23f184ed8c6),
-        #fp(1),
-      ),
-      // 5G - CORRECT NIST value
-      (
-        #fp(0x51590b7a515140d2d784c85608668fdfef8c82fd1f5be52421554a0dc3d033ed),
-        #fp(0xe0c17da8904a727d8ae1bf36bf8a79260d012f00d4d80888d1d0bb44fda16da4),
         #fp(1),
       ),
     );
@@ -383,17 +368,6 @@ for (curveKind in curveKinds.vals()) {
         },
       );
 
-      func gcdTest(f : (Int, Int) -> (Int, Int, Int)) {
-        let (gcd1, gcd2, gcd3) = f(100, 37);
-        assert (gcd1 == 1);
-        assert (gcd2 == 10);
-        assert (gcd3 == -27);
-        let (a, b, c) = f(0, 37);
-        assert (a == 37);
-        assert (b == 0);
-        assert (c == 1);
-      };
-
       test(
         "ec1Test",
         func() {
@@ -594,7 +568,7 @@ for (curveKind in curveKinds.vals()) {
           //  Dump.dump(expected.vals());
           //  Dump.dump(Blob.toArray(der).vals());
           assert (Blob.toArray(der) == expected);
-          assert (M.deserializeSignatureDer(C, der) == ?sig);
+          assert (M.deserializeSignatureDer(der) == ?sig);
         },
       );
 
@@ -820,7 +794,7 @@ for (curveKind in curveKinds.vals()) {
             while (j < n) {
               let s = toNat(vTbl[j]);
               let der = Blob.fromArray(tbl[i * n + j]);
-              switch (M.deserializeSignatureDer(C, der)) {
+              switch (M.deserializeSignatureDer(der)) {
                 case (null) {
                   assert (false);
                 };
@@ -850,12 +824,10 @@ for (curveKind in curveKinds.vals()) {
             [0x30, 0x06, 0x02, 0x00],
             [0x30, 0x06, 0x02, 0x11 /* too large */, 0x00, 0x02, 0x01, 0x00],
             [0x30, 0x06, 0x02, 0x01, 0x80 /*negative*/, 0x02, 0x01, 0x00],
-            // (r, s) where s = char(Zn)
-            [0x30, 0x26, 0x02, 0x01, 0x00, 0x02, 0x21, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c, 0xd0, 0x36, 0x41, 0x41],
             [0x30, 0x07, 0x02, 0x01, 0x00, 0x02, 0x02, 0x00, 0x00 /* redundant zero */],
           ];
           for (b in badTbl.vals()) {
-            assert (M.deserializeSignatureDer(C, Blob.fromArray(b)) == null);
+            assert (M.deserializeSignatureDer(Blob.fromArray(b)) == null);
           };
           do {
             let correct : [Nat8] = [0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00];
@@ -863,7 +835,7 @@ for (curveKind in curveKinds.vals()) {
             var i = 0;
             while (i < n) {
               let b = Blob.fromArray(Util.subArray(correct, 0, i));
-              assert (M.deserializeSignatureDer(C, b) == null);
+              assert (M.deserializeSignatureDer(b) == null);
               i += 1;
             };
           };
