@@ -5,6 +5,7 @@ import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Buffer "mo:base/Buffer";
 import Int "mo:base/Int";
+import Iter "mo:base/Iter";
 
 module {
   public type FpElt = { #fp : Nat };
@@ -198,7 +199,6 @@ module {
     };
 
     public func add((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi {
-      // ... add function remains unchanged ...
       if (pz == #fp(0)) return (qx, qy, qz);
       if (qz == #fp(0)) return (px, py, pz);
       let isPzOne = pz == #fp(1);
@@ -275,20 +275,33 @@ module {
 
     public func sub((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi = add((px, py, pz), (qx, Fp.neg(qy), qz));
 
-    // Standard double-and-add multiplication algorithm
-    // Works for all curves
-    public func mul_standard(a : Jacobi, #fr(x) : FrElt) : Jacobi {
-      let bs = Binary.fromNatReversed(x);
-      let n = bs.size();
-      var ret = zeroJ;
-      var i = 0;
-      while (i < n) {
-        let b = bs[n - 1 - i];
-        ret := dbl(ret);
-        if (b) ret := add(ret, a);
-        i += 1;
+    func mul_standard(a : Jacobi, #fr(k) : FrElt) : Jacobi {
+      // Handle special cases
+      if (k == 0 or isZero(a)) {
+        return zeroJ;
       };
-      ret;
+
+      // Initialize result to the point at infinity
+      var result = zeroJ;
+      // Initialize doubling point to the input point
+      var doubling = a;
+
+      // Process each bit of the scalar
+      var scalar = k;
+      while (scalar > 0) {
+        // If the current bit is 1, add the current doubling value
+        if (scalar % 2 == 1) {
+          result := add(result, doubling);
+        };
+
+        // Double the doubling point
+        doubling := dbl(doubling);
+
+        // Move to the next bit
+        scalar /= 2;
+      };
+
+      return result;
     };
 
     // GLV endomorphism functions - only used for secp256k1
@@ -355,13 +368,32 @@ module {
     };
 
     // Main multiplication function that chooses the appropriate algorithm
-    public func mul(x : Jacobi, k : FrElt) : Jacobi {
-      if (hasGLV) {
-        // Use optimized GLV multiplication for secp256k1
-        mul_glv(x, k);
+    public func mul(x : Jacobi, #fr(k) : FrElt) : Jacobi {
+
+      // Check if k represents a negative value in the field
+      // For prime fields, values greater than r/2 typically represent negative values
+      let isNegative = k > params.rHalf;
+
+      if (isNegative) {
+        // Calculate the positive equivalent of this scalar value
+        let positiveK = #fr(r_ - k : Nat);
+
+        // Calculate P * |k| and then negate the result
+        let result = if (hasGLV) {
+          mul_glv(x, positiveK);
+        } else {
+          mul_standard(x, positiveK);
+        };
+
+        // Return the negation of the result
+        return neg(result);
       } else {
-        // Use standard double-and-add for other curves
-        mul_standard(x, k);
+        // Regular case - just use the appropriate multiplication algorithm
+        if (hasGLV) {
+          return mul_glv(x, #fr(k));
+        } else {
+          return mul_standard(x, #fr(k));
+        };
       };
     };
 
