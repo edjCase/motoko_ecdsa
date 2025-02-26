@@ -1,6 +1,7 @@
 import Curve "./Curve";
 import PublicKey "./PublicKey";
 import Signature "./Signature";
+import Iter "mo:base/Iter";
 
 module {
 
@@ -14,19 +15,21 @@ module {
         public let curveKind = curveKind_;
         public let curve = Curve.Curve(curveKind);
 
-        public func getPublicKey() : PublicKey {
+        public func getPublicKey() : PublicKey.PublicKey {
             curve.mul_base(s);
         };
 
-        /// Sign hashed by sec and rand return lower S signature (r, s) such that s < rHalf
-        /// hashed : 32-byte SHA-256 value of a message.
-        /// rand : 32-byte random value.
+        public func sign(
+            msg : Iter.Iter<Nat8>,
+            rand : Iter.Iter<Nat8>,
+        ) : ?Signature.Signature {
+            signHashed(curve, sec, sha2(msg).vals(), rand);
+        };
+
         public func signHashed(
-            curve : Curve.Curve,
             hashed : Iter.Iter<Nat8>,
             rand : Iter.Iter<Nat8>,
-        ) : ?Signature {
-            if (sec == #fr(0)) Prelude.unreachable(); // type error
+        ) : ?Signature.Signature {
             let k = getExponent(curve, rand);
             let x = switch (curve.fromJacobi(curve.mul_base(k))) {
                 case (#zero) return null; // k was 0, bad luck with rand
@@ -40,34 +43,6 @@ module {
             ?normalizeSignature(curve, (r, s));
         };
 
-        /// Sign a message by sec and rand with SHA-256
-        public func sign(curve : Curve.Curve, sec : SecretKey, msg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : ?Signature {
-            signHashed(curve, sec, sha2(msg).vals(), rand);
-        };
-
-        /// serialize to DER format
-        /// https://www.oreilly.com/library/view/programming-bitcoin/9781492031482/ch04.html
-        public func serializeSignatureDer(sig : Signature) : Blob {
-            let buf = Buffer.Buffer<Nat8>(80);
-            buf.add(0x30); // top marker
-            buf.add(0); // modify later
-            let append = func(x : Nat) {
-                buf.add(0x02); // marker
-                let a = Util.toBigEndian(x);
-                let adj = if (a[0] >= 0x80) 1 else 0;
-                buf.add(Nat8.fromNat(a.size() + adj));
-                if (adj == 1) buf.add(0x00);
-                for (e in a.vals()) {
-                    buf.add(e);
-                };
-            };
-            let (#fr(r), #fr(s)) = sig;
-            append(r);
-            append(s);
-            let va = Buffer.toVarArray(buf);
-            va[1] := Nat8.fromNat(va.size()) - 2;
-            Blob.fromArrayMut(va);
-        };
     };
 
     public type GeneratePrivateKeyError = {

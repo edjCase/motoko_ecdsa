@@ -22,9 +22,4 @@ module {
     curveKind : CurveKind,
   ) : PublicKey = PublicKey.PublicKey(x, y, z, curveKind);
 
-  private func getExponent(
-    curve : Curve.Curve,
-    rand : Iter.Iter<Nat8>,
-  ) : Curve.FrElt = curve.Fr.fromNat(Util.toNatAsBigEndian(rand));
-
 };

@@ -6,6 +6,7 @@ import Nat "mo:base/Nat";
 import Buffer "mo:base/Buffer";
 import Int "mo:base/Int";
 import Iter "mo:base/Iter";
+import Util "util";
 
 module {
   public type FpElt = { #fp : Nat };
@@ -86,6 +87,10 @@ module {
       let sq = Fp.pow(x, pSqrRoot_);
       if (Fp.sqr(sq) == x) ?sq else null;
     };
+
+    public func getExponent(
+      rand : Iter.Iter<Nat8>
+    ) : FrElt = Fr.fromNat(Util.toNatAsBigEndian(rand));
 
     // return x^3 + ax + b
     public func getYsqrFromX(x : FpElt) : FpElt = Fp.add(Fp.mul(Fp.add(Fp.sqr(x), a_), x), b_);
