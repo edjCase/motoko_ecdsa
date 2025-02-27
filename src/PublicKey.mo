@@ -17,6 +17,10 @@ module {
         public let y = y_;
         public let curve = curve_;
 
+        public func equal(other : PublicKey) : Bool {
+            return curve.isEqual((x, y), (other.x, other.y)) and curve.kind == curve.kind;
+        };
+
         public func verify(
             msg : Iter.Iter<Nat8>,
             sig : Signature.Signature,

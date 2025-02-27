@@ -1,6 +1,6 @@
 import M "../src";
 import Field "../src/field";
-import Curve "../src/curve";
+import Curve "../src/Curve";
 import Binary "../src/binary";
 import Util "../src/util";
 import Nat "mo:base/Nat";
@@ -10,12 +10,21 @@ import Iter "mo:base/Iter";
 import Nat8 "mo:base/Nat8";
 import P "mo:base/Prelude";
 import { test; suite } "mo:test";
+import Sha256 "mo:sha2/Sha256";
+import PrivateKey "../src/PrivateKey";
+import PublicKey "../src/PublicKey";
+import Signature "../src/Signature";
+
+func sha2(bytes : Iter.Iter<Nat8>) : Blob {
+  Sha256.fromIter(#sha256, bytes);
+};
 
 let curveKinds : [Curve.CurveKind] = [
   #secp256k1,
   #prime256v1,
 ];
 for (curveKind in curveKinds.vals()) {
+  let curve = Curve.Curve(curveKind);
 
   let (okP1, okP2, okP3, okP4) = switch (curveKind) {
     case (#secp256k1) (
@@ -433,47 +442,48 @@ for (curveKind in curveKinds.vals()) {
           let hello : [Nat8] = [0x68, 0x65, 0x6c, 0x6c, 0x6f];
           // sha256('hello')
           let hashed : [Nat8] = [0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24];
-          assert (Blob.toArray(M.sha2(hello.vals())) == hashed);
+          assert (Blob.toArray(sha2(hello.vals())) == hashed);
 
           let secBytes : [Nat8] = [0x83, 0xec, 0xb3, 0x98, 0x4a, 0x4f, 0x9f, 0xf0, 0x3e, 0x84, 0xd5, 0xf9, 0xc0, 0xd7, 0xf8, 0x88, 0xa8, 0x18, 0x33, 0x64, 0x30, 0x47, 0xac, 0xc5, 0x8e, 0xb6, 0x43, 0x1e, 0x01, 0xd9, 0xba, 0xc8];
-          let expectedSecKey = #fr(0x83ecb3984a4f9ff03e84d5f9c0d7f888a81833643047acc58eb6431e01d9bac8);
+          let expectedSecKey = 0x83ecb3984a4f9ff03e84d5f9c0d7f888a81833643047acc58eb6431e01d9bac8;
           let randBytes : [Nat8] = [0x8a, 0xfa, 0x4a, 0x16, 0x2b, 0x7b, 0xad, 0x6c, 0x92, 0xff, 0x14, 0xf3, 0xa8, 0xbf, 0x4d, 0xb0, 0xf3, 0xc3, 0x9e, 0x90, 0xc0, 0x6f, 0x93, 0x78, 0x61, 0xf8, 0x23, 0xd2, 0x99, 0x5c, 0x74, 0xf0];
           do {
             // Define test vectors for each curve
-            let (expectedPubKey, expectedSig) = switch (curveKind) {
+            let (expectedX, expextedY, expectedSig) = switch (curveKind) {
               case (#secp256k1) (
-                (#fp(0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71), #fp(0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a), #fp(1)),
-                (#fr(0xa598a8030da6d86c6bc7f2f5144ea549d28211ea58faa70ebf4c1e665c1fe9b5), #fr(0xde5d79a2ba44e311d04fdca263639283965780bce9169822be9cc81756e95a24)),
+                (0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71, 0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a),
+                (0xa598a8030da6d86c6bc7f2f5144ea549d28211ea58faa70ebf4c1e665c1fe9b5, 0xde5d79a2ba44e311d04fdca263639283965780bce9169822be9cc81756e95a24),
               );
               case (#prime256v1) (
-                (#fp(0xdda42ea71acbf585783d9b9d1890f79633975165b91b1a205ae4cadacaa1cf68), #fp(0x194e239b3852413d0fd648f22ad5f0fd80b77961c15a151fa9f957b6f17a854a), #fp(0x392fb19f4071d67a63cd796286885ca8a3df2668f6da14846d607195ca4a25f2)),
-                (#fr(0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa), #fr(0x47eda72670efd34132e0d1f0ed4cb581f7b754c9232591d9c0a78fa53b5680bf)),
+                (0xdda42ea71acbf585783d9b9d1890f79633975165b91b1a205ae4cadacaa1cf68, 0x194e239b3852413d0fd648f22ad5f0fd80b77961c15a151fa9f957b6f17a854a),
+                (0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa, 0x47eda72670efd34132e0d1f0ed4cb581f7b754c9232591d9c0a78fa53b5680bf),
               );
             };
 
-            let sec = switch (M.getSecretKey(C, secBytes.vals())) {
+            let privateKey = switch (PrivateKey.generate(secBytes.vals(), C)) {
+              case (#err(_)) P.unreachable();
+              case (#ok(v)) v;
+            };
+
+            assert (privateKey.d == expectedSecKey);
+
+            let publicKey = privateKey.getPublicKey();
+            assert (C.isEqual((publicKey.x, publicKey.y), (expectedX, expextedY)));
+
+            let sig = switch (privateKey.signHashed(hashed.vals(), randBytes.vals())) {
               case (null) P.unreachable();
               case (?v) v;
             };
 
-            assert (sec == #non_zero(expectedSecKey));
+            assert (publicKey.verifyHashed(C, pub, hashed.vals(), sig));
+            let #fr(y2) = C.Fp.add(publicKey.y, #fp(1));
+            let publicKey2 = PublicKey.PublicKey(publicKey.x, y2, curve);
+            assert (not publicKey.verifyHashed(hashed.vals(), sig));
+            assert (not publicKey.verifyHashed(([0x1, 0x2] : [Nat8]).vals(), sig));
+            assert (privateKey.sign(hello.vals(), randBytes.vals()) == ?sig);
+            assert (publicKey.verifyHashed(hashed.vals(), sig));
 
-            let pub = M.getPublicKey(C, sec);
-            assert (C.isEqual(pub, expectedPubKey));
-
-            let sig = switch (M.signHashed(C, sec, hashed.vals(), randBytes.vals())) {
-              case (null) P.unreachable();
-              case (?v) v;
-            };
-
-            assert (M.verifyHashed(C, pub, hashed.vals(), sig));
-            assert (not M.verifyHashed(C, (pub.0, C.Fp.add(pub.1, #fp(1)), #fp(1)), hashed.vals(), sig));
-            assert (not M.verifyHashed(C, pub, ([0x1, 0x2] : [Nat8]).vals(), sig));
-            assert (M.sign(C, sec, hello.vals(), randBytes.vals()) == ?sig);
-            assert (M.verifyHashed(C, pub, hashed.vals(), sig));
-
-            let sig2 = M.normalizeSignature(C, expectedSig);
-            assert (M.verify(C, pub, hello.vals(), sig2));
+            assert (publicKey.verify(C, pub, hello.vals(), sig2));
           };
         },
       );
@@ -484,7 +494,7 @@ for (curveKind in curveKinds.vals()) {
           // sha256('hello')
           let hashed : [Nat8] = [0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24];
 
-          let secretKeyVal = #fr(0xb1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2);
+          let secretKeyVal = 0xb1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2;
 
           // Test vectors from Python:ecdsa for both curves
           let (expectedPubKey, sigR, sigS) = switch (curveKind) {
@@ -508,15 +518,14 @@ for (curveKind in curveKinds.vals()) {
             );
           };
 
-          let sec = #non_zero(secretKeyVal);
-          let pub = M.getPublicKey(C, sec);
+          let privateKey = PrivateKey.PrivateKey(secretKeyVal, curve);
+          let publicKey = privateKey.getPublicKey();
 
           // Verify public key
           assert (C.isEqual(pub, expectedPubKey));
 
           // Verify signature
-          let sig = M.normalizeSignature(C, (#fr(sigR), #fr(sigS)));
-          assert (M.verifyHashed(C, pub, hashed.vals(), sig));
+          assert (publicKey.verifyHashed(hashed.vals(), sig));
         },
       );
 
@@ -827,7 +836,7 @@ for (curveKind in curveKinds.vals()) {
             [0x30, 0x07, 0x02, 0x01, 0x00, 0x02, 0x02, 0x00, 0x00 /* redundant zero */],
           ];
           for (b in badTbl.vals()) {
-            assert (M.deserializeSignatureDer(Blob.fromArray(b)) == null);
+            assert (Signature.fromDerBytes(Blob.fromArray(b)) == null);
           };
           do {
             let correct : [Nat8] = [0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00];
@@ -835,7 +844,7 @@ for (curveKind in curveKinds.vals()) {
             var i = 0;
             while (i < n) {
               let b = Blob.fromArray(Util.subArray(correct, 0, i));
-              assert (M.deserializeSignatureDer(b) == null);
+              assert (Signature.fromDerBytes(b) == null);
               i += 1;
             };
           };

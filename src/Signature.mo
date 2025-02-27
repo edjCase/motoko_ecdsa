@@ -2,11 +2,12 @@ import Curve "./Curve";
 import Blob "mo:base/Blob";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
+import Nat8 "mo:base/Nat8";
 import Util "util";
 
 module {
-    public class Signature(r_ : Nat, s_ : Nat, curveKind : Curve.CurveKind) {
-        public let curve = Curve.Curve(curveKind);
+    public class Signature(r_ : Nat, s_ : Nat, curve_ : Curve.Curve) {
+        public let curve = curve_;
 
         /// convert a signature to lower S signature
         // TODO do this automatically or on demand?
@@ -19,10 +20,10 @@ module {
 
         /// serialize to DER format
         /// https://www.oreilly.com/library/view/programming-bitcoin/9781492031482/ch04.html
-        public func toBytesDer() : Blob {
+        public func toBytesDer() : [Nat8] {
             let buf = Buffer.Buffer<Nat8>(80);
             buf.add(0x30); // top marker
-            buf.add(0); // modify later
+            buf.add(0); // modify size later
             let append = func(x : Nat) {
                 buf.add(0x02); // marker
                 let a = Util.toBigEndian(x);
@@ -33,12 +34,10 @@ module {
                     buf.add(e);
                 };
             };
-            let (#fr(r), #fr(s)) = sig;
             append(r);
             append(s);
-            let va = Buffer.toVarArray(buf);
-            va[1] := Nat8.fromNat(va.size()) - 2;
-            Blob.fromArrayMut(va);
+            buf.put(1, Nat8.fromNat(buf.size() - 2)); // set size
+            Buffer.toArray(buf);
         };
     };
 
@@ -77,7 +76,7 @@ module {
     //     };
     // };
 
-    public func fromRawBytes(signatureBlob : Blob, curveKind : Curve.CurveKind) : ?Signature {
+    public func fromRawBytes(signatureBlob : Blob, curve : Curve.Curve) : ?Signature {
         let signatureBytes = Blob.toArray(signatureBlob);
 
         if (signatureBytes.size() != 64) {
@@ -91,7 +90,7 @@ module {
         let r = Util.toNatAsBigEndian(rBytes.vals());
         let s = Util.toNatAsBigEndian(sBytes.vals());
 
-        ?Signature(r, s, curveKind);
+        ?Signature(r, s, curve);
     };
 
 };

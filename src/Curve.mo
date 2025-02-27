@@ -43,7 +43,8 @@ module {
     #prime256v1;
   };
 
-  public class Curve(kind : CurveKind) {
+  public class Curve(kind_ : CurveKind) {
+    public let kind = kind_;
     public let params : CurveParams = getParams(kind);
     let p_ = params.p;
     let r_ = params.r;
@@ -441,6 +442,9 @@ module {
       Debug.print("(0x" # Hex.fromNat(Fr.toNat(x)) # ", 0x" # Hex.fromNat(Fr.toNat(y)) # ")");
     };
   };
+
+  public func secp256k1() : Curve = Curve(#secp256k1);
+  public func prime256v1() : Curve = Curve(#prime256v1);
 
   public func getParams(kind : CurveKind) : CurveParams {
     switch (kind) {
