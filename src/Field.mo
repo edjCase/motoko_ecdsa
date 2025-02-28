@@ -1,5 +1,5 @@
-import IntExt "intext";
-import Binary "binary";
+import IntExt "./IntExt";
+import Binary "./Binary";
 import Int "mo:base/Int";
 
 module {

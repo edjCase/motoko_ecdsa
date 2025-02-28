@@ -1,9 +1,8 @@
 import Curve "./Curve";
-import Blob "mo:base/Blob";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
-import Util "util";
+import Util "Util";
 
 module {
     public class Signature(r_ : Nat, s_ : Nat, curve_ : Curve.Curve) {
@@ -16,6 +15,10 @@ module {
         } else {
             let #fr(s) = curve.Fr.neg(#fr(s_));
             (r_, s);
+        };
+
+        public func equal(other : Signature) : Bool {
+            return curve.equal(other.curve) and r == other.r and s == other.s;
         };
 
         /// serialize to DER format
@@ -41,51 +44,47 @@ module {
         };
     };
 
-    // TODO DER needs to evaluate curvekind
-    // public func fromDerBytes(b : Blob) : ?Signature {
-    //     let a = Blob.toArray(b);
-    //     if (a.size() <= 2 or a[0] != 0x30) return null;
-    //     if (a.size() != Nat8.toNat(a[1]) + 2) return null;
-    //     let read = func(a : [Nat8], begin : Nat) : ?(Nat, Nat) {
-    //         if (a.size() < begin + 2) return null;
-    //         if (a[begin] != 0x02) return null;
-    //         let n = Nat8.toNat(a[begin + 1]);
-    //         if (a.size() < begin + 1 + n) return null;
-    //         let top = a[begin + 2];
-    //         if (top >= 0x80) return null;
-    //         if (top == 0 and n > 1 and (a[begin + 2 + 1] & 0x80) == 0) return null;
-    //         var v = 0;
-    //         var i = 0;
-    //         while (i < n) {
-    //             v := v * 256 + Nat8.toNat(a[begin + 2 + i]);
-    //             i += 1;
-    //         };
-    //         ?(n + 2, v);
-    //     };
-    //     return switch (read(a, 2)) {
-    //         case (null) null;
-    //         case (?(read1, r)) {
-    //             switch (read(a, 2 + read1)) {
-    //                 case (null) null;
-    //                 case (?(read2, s)) {
-    //                     if (a.size() != 2 + read1 + read2) return null;
-    //                     ?Signature(r, s, curveKind);
-    //                 };
-    //             };
-    //         };
-    //     };
-    // };
+    public func fromBytesDer(bytes : [Nat8], curve : Curve.Curve) : ?Signature {
+        if (bytes.size() <= 2 or bytes[0] != 0x30) return null;
+        if (bytes.size() != Nat8.toNat(bytes[1]) + 2) return null;
+        let read = func(a : [Nat8], begin : Nat) : ?(Nat, Nat) {
+            if (a.size() < begin + 2) return null;
+            if (a[begin] != 0x02) return null;
+            let n = Nat8.toNat(a[begin + 1]);
+            if (a.size() < begin + 1 + n) return null;
+            let top = a[begin + 2];
+            if (top >= 0x80) return null;
+            if (top == 0 and n > 1 and (a[begin + 2 + 1] & 0x80) == 0) return null;
+            var v = 0;
+            var i = 0;
+            while (i < n) {
+                v := v * 256 + Nat8.toNat(a[begin + 2 + i]);
+                i += 1;
+            };
+            ?(n + 2, v);
+        };
+        return switch (read(bytes, 2)) {
+            case (null) null;
+            case (?(read1, r)) {
+                switch (read(bytes, 2 + read1)) {
+                    case (null) null;
+                    case (?(read2, s)) {
+                        if (bytes.size() != 2 + read1 + read2) return null;
+                        ?Signature(r, s, curve);
+                    };
+                };
+            };
+        };
+    };
 
-    public func fromRawBytes(signatureBlob : Blob, curve : Curve.Curve) : ?Signature {
-        let signatureBytes = Blob.toArray(signatureBlob);
-
-        if (signatureBytes.size() != 64) {
+    public func fromRawBytes(bytes : [Nat8], curve : Curve.Curve) : ?Signature {
+        if (bytes.size() != 64) {
             return null;
         };
 
         // Extract r and s values
-        let rBytes = Array.subArray(signatureBytes, 0, 32);
-        let sBytes = Array.subArray(signatureBytes, 32, 32);
+        let rBytes = Array.subArray(bytes, 0, 32);
+        let sBytes = Array.subArray(bytes, 32, 32);
 
         let r = Util.toNatAsBigEndian(rBytes.vals());
         let s = Util.toNatAsBigEndian(sBytes.vals());

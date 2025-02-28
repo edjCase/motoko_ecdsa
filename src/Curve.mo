@@ -1,12 +1,12 @@
-import Field "field";
-import Hex "hex";
-import Binary "binary";
+import Field "./Field";
+import Hex "./Hex";
+import Binary "./Binary";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Buffer "mo:base/Buffer";
 import Int "mo:base/Int";
 import Iter "mo:base/Iter";
-import Util "util";
+import Util "./Util";
 
 module {
   public type FpElt = { #fp : Nat };
@@ -82,6 +82,10 @@ module {
       neg = func(#fr(x) : FrElt) : FrElt = #fr(Field.neg_(x, r_));
       inv = func(#fr(x) : FrElt) : FrElt = #fr(Field.inv_(x, r_));
       sqr = func(#fr(x) : FrElt) : FrElt = #fr(Field.sqr_(x, r_));
+    };
+
+    public func equal(other : Curve) : Bool {
+      kind == other.kind;
     };
 
     public func fpSqrRoot(x : FpElt) : ?FpElt {

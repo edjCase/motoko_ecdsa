@@ -1,10 +1,9 @@
 import Curve "./Curve";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
-import Blob "mo:base/Blob";
 import Sha256 "mo:sha2/Sha256";
 import Signature "./Signature";
-import Util "util";
+import Util "./Util";
 
 module {
 
@@ -18,7 +17,7 @@ module {
         public let curve = curve_;
 
         public func equal(other : PublicKey) : Bool {
-            return curve.isEqual((x, y), (other.x, other.y)) and curve.kind == curve.kind;
+            return curve.kind == curve.kind and curve.isEqual((#fp(x), #fp(y), #fp(1)), (#fp(other.x), #fp(other.y), #fp(1)));
         };
 
         public func verify(
@@ -90,22 +89,21 @@ module {
     };
 
     /// Deserialize an uncompressed public key
-    public func fromBytesUncompressed(curve : Curve.Curve, b : Blob) : ?PublicKey {
-        if (b.size() != 65) return null;
-        let a = Blob.toArray(b);
-        if (a[0] != 0x04) return null;
-        class range(a : [Nat8], begin : Nat, size : Nat) {
+    public func fromBytesUncompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
+        if (bytes.size() != 65) return null;
+        if (bytes[0] != 0x04) return null;
+        class range(begin : Nat, size : Nat) {
             var i = 0;
             public func next() : ?Nat8 {
                 if (i == size) return null;
-                let ret = ?a[begin + i];
+                let ret = ?bytes[begin + i];
                 i += 1;
                 ret;
             };
         };
         let n = 32;
-        let x = Util.toNatAsBigEndian(range(a, 1, n));
-        let y = Util.toNatAsBigEndian(range(a, 1 + n, n));
+        let x = Util.toNatAsBigEndian(range(1, n));
+        let y = Util.toNatAsBigEndian(range(1 + n, n));
         if (x >= curve.params.p) return null;
         if (y >= curve.params.p) return null;
         let pub = (#fp(x), #fp(y));
@@ -113,10 +111,10 @@ module {
         ?PublicKey(x, y, curve);
     };
 
-    public func fromBytesCompressed(curve : Curve.Curve, b : Blob) : ?PublicKey {
+    public func fromBytesCompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
         let n = 32;
-        if (b.size() != n + 1) return null;
-        let iter = b.vals();
+        if (bytes.size() != n + 1) return null;
+        let iter = bytes.vals();
         let even = switch (iter.next()) {
             case (?0x02) true;
             case (?0x03) false;

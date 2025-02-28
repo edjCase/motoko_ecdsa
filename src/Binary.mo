@@ -12,7 +12,7 @@ module {
     Buffer.toArray(buf);
   };
   // getNAF
-  public func toNafWidth(x_ : Int, w : Int) : [Int] {
+  public func toNafWidth(x_ : Int, _w : Int) : [Int] {
     var naf = Buffer.Buffer<Int>(256);
     let w = 5;
     let signedMaxW : Int = 2 ** (w - 1);

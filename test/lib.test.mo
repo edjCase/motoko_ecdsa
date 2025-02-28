@@ -1,14 +1,15 @@
 import M "../src";
-import Field "../src/field";
+import Field "../src/Field";
 import Curve "../src/Curve";
-import Binary "../src/binary";
-import Util "../src/util";
+import Binary "../src/Binary";
+import Util "../src/Util";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
 import Blob "mo:base/Blob";
 import Iter "mo:base/Iter";
 import Nat8 "mo:base/Nat8";
 import P "mo:base/Prelude";
+import Debug "mo:base/Debug";
 import { test; suite } "mo:test";
 import Sha256 "mo:sha2/Sha256";
 import PrivateKey "../src/PrivateKey";
@@ -449,14 +450,14 @@ for (curveKind in curveKinds.vals()) {
           let randBytes : [Nat8] = [0x8a, 0xfa, 0x4a, 0x16, 0x2b, 0x7b, 0xad, 0x6c, 0x92, 0xff, 0x14, 0xf3, 0xa8, 0xbf, 0x4d, 0xb0, 0xf3, 0xc3, 0x9e, 0x90, 0xc0, 0x6f, 0x93, 0x78, 0x61, 0xf8, 0x23, 0xd2, 0x99, 0x5c, 0x74, 0xf0];
           do {
             // Define test vectors for each curve
-            let (expectedX, expextedY, expectedSig) = switch (curveKind) {
+            let (expectedPK, expectedSig) = switch (curveKind) {
               case (#secp256k1) (
-                (0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71, 0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a),
-                (0xa598a8030da6d86c6bc7f2f5144ea549d28211ea58faa70ebf4c1e665c1fe9b5, 0xde5d79a2ba44e311d04fdca263639283965780bce9169822be9cc81756e95a24),
+                PublicKey.PublicKey(0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71, 0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a, curve),
+                Signature.Signature(0xa598a8030da6d86c6bc7f2f5144ea549d28211ea58faa70ebf4c1e665c1fe9b5, 0xde5d79a2ba44e311d04fdca263639283965780bce9169822be9cc81756e95a24, curve),
               );
               case (#prime256v1) (
-                (0xdda42ea71acbf585783d9b9d1890f79633975165b91b1a205ae4cadacaa1cf68, 0x194e239b3852413d0fd648f22ad5f0fd80b77961c15a151fa9f957b6f17a854a),
-                (0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa, 0x47eda72670efd34132e0d1f0ed4cb581f7b754c9232591d9c0a78fa53b5680bf),
+                PublicKey.PublicKey(0xdda42ea71acbf585783d9b9d1890f79633975165b91b1a205ae4cadacaa1cf68, 0x194e239b3852413d0fd648f22ad5f0fd80b77961c15a151fa9f957b6f17a854a, curve),
+                Signature.Signature(0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa, 0x47eda72670efd34132e0d1f0ed4cb581f7b754c9232591d9c0a78fa53b5680bf, curve),
               );
             };
 
@@ -468,22 +469,24 @@ for (curveKind in curveKinds.vals()) {
             assert (privateKey.d == expectedSecKey);
 
             let publicKey = privateKey.getPublicKey();
-            assert (C.isEqual((publicKey.x, publicKey.y), (expectedX, expextedY)));
+            assert (publicKey.equal(expectedPK));
 
-            let sig = switch (privateKey.signHashed(hashed.vals(), randBytes.vals())) {
+            let sig : Signature.Signature = switch (privateKey.signHashed(hashed.vals(), randBytes.vals())) {
               case (null) P.unreachable();
               case (?v) v;
             };
 
-            assert (publicKey.verifyHashed(C, pub, hashed.vals(), sig));
-            let #fr(y2) = C.Fp.add(publicKey.y, #fp(1));
+            assert (publicKey.verifyHashed(hashed.vals(), sig));
+            let #fp(y2) = C.Fp.add(#fp(publicKey.y), #fp(1));
             let publicKey2 = PublicKey.PublicKey(publicKey.x, y2, curve);
-            assert (not publicKey.verifyHashed(hashed.vals(), sig));
+            assert (not publicKey2.verifyHashed(hashed.vals(), sig));
             assert (not publicKey.verifyHashed(([0x1, 0x2] : [Nat8]).vals(), sig));
-            assert (privateKey.sign(hello.vals(), randBytes.vals()) == ?sig);
+            let ?actualSig = privateKey.sign(hello.vals(), randBytes.vals()) else Debug.trap("Failed to sign message");
+
+            assert (actualSig.equal(expectedSig));
             assert (publicKey.verifyHashed(hashed.vals(), sig));
 
-            assert (publicKey.verify(C, pub, hello.vals(), sig2));
+            assert (publicKey.verify(hello.vals(), expectedSig));
           };
         },
       );
@@ -497,24 +500,30 @@ for (curveKind in curveKinds.vals()) {
           let secretKeyVal = 0xb1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2;
 
           // Test vectors from Python:ecdsa for both curves
-          let (expectedPubKey, sigR, sigS) = switch (curveKind) {
+          let (expectedPubKey, expectedSig) = switch (curveKind) {
             case (#secp256k1) (
-              (
-                #fp(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d),
-                #fp(0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d),
-                #fp(1),
+              PublicKey.PublicKey(
+                0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d,
+                0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d,
+                curve,
               ),
-              0x50839a97404c24ec39455b996e4888477fd61bcf0ffb960c7ffa3bef10450191,
-              0x9671b8315bb5c1611d422d49cbbe7e80c6b463215bfad1c16ca73172155bf31a,
+              Signature.Signature(
+                0x50839a97404c24ec39455b996e4888477fd61bcf0ffb960c7ffa3bef10450191,
+                0x9671b8315bb5c1611d422d49cbbe7e80c6b463215bfad1c16ca73172155bf31a,
+                curve,
+              ),
             );
             case (#prime256v1) (
-              (
-                #fp(0xb9181ec1c103c4621f7dac602dc2c9f2648f4906592bddaf56f3ca32fb196dbc),
-                #fp(0x776fd0bf72a4116bd0d75da24a479b019655b61d3cfd6443407afddd5e9cde2b),
-                #fp(0x6232c6225e77e751a8778a46a119060279b661b35b7c8b90e842109f33409f65),
+              PublicKey.PublicKey(
+                0xb9181ec1c103c4621f7dac602dc2c9f2648f4906592bddaf56f3ca32fb196dbc,
+                0x776fd0bf72a4116bd0d75da24a479b019655b61d3cfd6443407afddd5e9cde2b,
+                curve,
               ),
-              0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa,
-              0x8714550e18c194fd1d4a2a22a1c3077b64c7acbceb7d111a25d08dfd14c98a3,
+              Signature.Signature(
+                0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa,
+                0x8714550e18c194fd1d4a2a22a1c3077b64c7acbceb7d111a25d08dfd14c98a3,
+                curve,
+              ),
             );
           };
 
@@ -522,48 +531,47 @@ for (curveKind in curveKinds.vals()) {
           let publicKey = privateKey.getPublicKey();
 
           // Verify public key
-          assert (C.isEqual(pub, expectedPubKey));
+          assert (publicKey.equal(expectedPubKey));
 
           // Verify signature
-          assert (publicKey.verifyHashed(hashed.vals(), sig));
+          assert (publicKey.verifyHashed(hashed.vals(), expectedSig));
         },
       );
 
       test(
         "serializeTest",
         func() {
-          let (expectedBytes, pubAffine) : ([Nat8], (Curve.FpElt, Curve.FpElt)) = switch (curveKind) {
+          let (expectedBytes, publicKey) : ([Nat8], PublicKey.PublicKey) = switch (curveKind) {
             case (#secp256k1) (
               [0x04, 0xa, 0x9, 0xff, 0x14, 0x2d, 0x94, 0xbc, 0x3f, 0x56, 0xc5, 0xc8, 0x1b, 0x75, 0xea, 0x3b, 0x6, 0xb0, 0x82, 0xc5, 0x26, 0x3f, 0xbb, 0x5b, 0xd8, 0x8c, 0x61, 0x9f, 0xc6, 0x39, 0x3d, 0xda, 0x3d, 0xa5, 0x3e, 0xe, 0x93, 0x8, 0x92, 0xcd, 0xb7, 0x79, 0x9e, 0xea, 0x8f, 0xd4, 0x5b, 0x9f, 0xff, 0x37, 0x7d, 0x83, 0x8f, 0x41, 0x6, 0x45, 0x42, 0x89, 0xae, 0x8a, 0x8, 0xb, 0x11, 0x1f, 0x8d],
-              (#fp(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d), #fp(0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d)),
+              PublicKey.PublicKey(0x0a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3d, 0xa53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d, curve),
             );
             case (#prime256v1) (
               [0x04, 0xE4, 0x66, 0x8E, 0x55, 0x48, 0xEE, 0x5A, 0x7E, 0x7D, 0x6B, 0xC0, 0x69, 0xEF, 0xDE, 0xBD, 0xE0, 0x3E, 0x4A, 0x0A, 0x52, 0xFB, 0xEE, 0x28, 0xAB, 0x01, 0x16, 0x4D, 0x03, 0x3C, 0x4B, 0x63, 0x65, 0x38, 0x1D, 0x87, 0x04, 0x6D, 0x4F, 0x8F, 0xB4, 0xE7, 0xCC, 0xF3, 0xFD, 0x34, 0x3A, 0xFA, 0x3E, 0xDA, 0xE4, 0x9B, 0x16, 0x1B, 0x02, 0x40, 0xFC, 0x3E, 0x8A, 0x33, 0x37, 0xA5, 0xFE, 0x8E, 0x39],
-              (#fp(0xe4668e5548ee5a7e7d6bc069efdebde03e4a0a52fbee28ab01164d033c4b6365), #fp(0x381d87046d4f8fb4e7ccf3fd343afa3edae49b161b0240fc3e8a3337a5fe8e39)),
+              PublicKey.PublicKey(0xe4668e5548ee5a7e7d6bc069efdebde03e4a0a52fbee28ab01164d033c4b6365, 0x381d87046d4f8fb4e7ccf3fd343afa3edae49b161b0240fc3e8a3337a5fe8e39, curve),
             );
           };
-          let expected = Blob.fromArray(expectedBytes);
-          let pubJ : Curve.Jacobi = C.toJacobi(#affine(pubAffine));
 
           let check = func(actualPubKey : ?M.PublicKey, expectedPubKey : M.PublicKey) {
             switch (actualPubKey) {
               case (null) { assert (false) };
               case (?actualPubKey) {
-                assert (C.isEqual(actualPubKey, expectedPubKey));
+                assert (actualPubKey.equal(expectedPubKey));
               };
             };
           };
           do {
-            let v = M.serializePublicKeyUncompressed(C, pubAffine);
-            assert (v == expected);
-            check(M.deserializePublicKeyUncompressed(C, v), pubJ);
+            let uncompressedBytes = publicKey.toBytesUncompressed();
+            assert (uncompressedBytes == expectedBytes);
+            check(PublicKey.fromBytesUncompressed(uncompressedBytes, curve), publicKey);
           };
           do {
-            let v = M.serializePublicKeyCompressed(C, pubAffine);
-            check(M.deserializePublicKeyCompressed(C, v), pubJ);
-            let pubNeg = (pubAffine.0, C.Fp.neg(pubAffine.1));
-            let v2 = M.serializePublicKeyCompressed(C, pubNeg);
-            check(M.deserializePublicKeyCompressed(C, v2), C.toJacobi(#affine(pubNeg)));
+            let compressedBytes = publicKey.toBytesCompressed();
+            check(PublicKey.fromBytesCompressed(compressedBytes, curve), publicKey);
+            let #fp(yNeg) = C.Fp.neg(#fp(publicKey.y));
+            let publicKeyNeg = PublicKey.PublicKey(publicKey.x, yNeg, curve);
+            let compressedBytesNeg = publicKeyNeg.toBytesCompressed();
+            check(PublicKey.fromBytesCompressed(compressedBytesNeg, curve), publicKeyNeg);
           };
         },
       );
@@ -571,13 +579,15 @@ for (curveKind in curveKinds.vals()) {
       test(
         "derTest",
         func() {
-          let sig = (#fr(0xed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f), #fr(0x7a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed));
-          let expected : [Nat8] = [0x30, 0x45, 0x02, 0x21, 0x00, 0xed, 0x81, 0xff, 0x19, 0x2e, 0x75, 0xa3, 0xfd, 0x23, 0x04, 0x00, 0x4d, 0xca, 0xdb, 0x74, 0x6f, 0xa5, 0xe2, 0x4c, 0x50, 0x31, 0xcc, 0xfc, 0xf2, 0x13, 0x20, 0xb0, 0x27, 0x74, 0x57, 0xc9, 0x8f, 0x02, 0x20, 0x7a, 0x98, 0x6d, 0x95, 0x5c, 0x6e, 0x0c, 0xb3, 0x5d, 0x44, 0x6a, 0x89, 0xd3, 0xf5, 0x61, 0x00, 0xf4, 0xd7, 0xf6, 0x78, 0x01, 0xc3, 0x19, 0x67, 0x74, 0x3a, 0x9c, 0x8e, 0x10, 0x61, 0x5b, 0xed];
-          let der = M.serializeSignatureDer(sig);
-          //  Dump.dump(expected.vals());
-          //  Dump.dump(Blob.toArray(der).vals());
-          assert (Blob.toArray(der) == expected);
-          assert (M.deserializeSignatureDer(der) == ?sig);
+          let sig = Signature.Signature(0xed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f, 0x7a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed, curve);
+          let expected : [Nat8] = switch (curveKind) {
+            case (#secp256k1) [0x30, 0x45, 0x02, 0x21, 0x00, 0xed, 0x81, 0xff, 0x19, 0x2e, 0x75, 0xa3, 0xfd, 0x23, 0x04, 0x00, 0x4d, 0xca, 0xdb, 0x74, 0x6f, 0xa5, 0xe2, 0x4c, 0x50, 0x31, 0xcc, 0xfc, 0xf2, 0x13, 0x20, 0xb0, 0x27, 0x74, 0x57, 0xc9, 0x8f, 0x02, 0x20, 0x7a, 0x98, 0x6d, 0x95, 0x5c, 0x6e, 0x0c, 0xb3, 0x5d, 0x44, 0x6a, 0x89, 0xd3, 0xf5, 0x61, 0x00, 0xf4, 0xd7, 0xf6, 0x78, 0x01, 0xc3, 0x19, 0x67, 0x74, 0x3a, 0x9c, 0x8e, 0x10, 0x61, 0x5b, 0xed];
+            case (#prime256v1) [];
+          };
+          let derBytes = sig.toBytesDer();
+          assert (derBytes == expected);
+          let ?actualSig = Signature.fromBytesDer(derBytes, curve) else Debug.trap("Unable to parse signature der bytes");
+          assert (actualSig.equal(sig));
         },
       );
 
@@ -802,15 +812,15 @@ for (curveKind in curveKinds.vals()) {
             var j = 0;
             while (j < n) {
               let s = toNat(vTbl[j]);
-              let der = Blob.fromArray(tbl[i * n + j]);
-              switch (M.deserializeSignatureDer(der)) {
+              let der = tbl[i * n + j];
+              switch (Signature.fromBytesDer(der, curve)) {
                 case (null) {
                   assert (false);
                 };
                 case (?sig) {
-                  assert (sig.0 == r);
-                  assert (sig.1 == s);
-                  assert (M.serializeSignatureDer(sig) == der);
+                  assert (#fr(sig.r) == r);
+                  assert (#fr(sig.s) == s);
+                  assert (sig.toBytesDer() == der);
                 };
               };
               j += 1;
@@ -836,15 +846,22 @@ for (curveKind in curveKinds.vals()) {
             [0x30, 0x07, 0x02, 0x01, 0x00, 0x02, 0x02, 0x00, 0x00 /* redundant zero */],
           ];
           for (b in badTbl.vals()) {
-            assert (Signature.fromDerBytes(Blob.fromArray(b)) == null);
+            switch (Signature.fromBytesDer(b, curve)) {
+              case (null) assert (false);
+              case (_) ();
+            };
           };
           do {
             let correct : [Nat8] = [0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00];
             let n = correct.size();
             var i = 0;
             while (i < n) {
-              let b = Blob.fromArray(Util.subArray(correct, 0, i));
-              assert (Signature.fromDerBytes(b) == null);
+              let b = Util.subArray(correct, 0, i);
+
+              switch (Signature.fromBytesDer(b, curve)) {
+                case (null) assert (false);
+                case (_) ();
+              };
               i += 1;
             };
           };
