@@ -77,7 +77,7 @@ module {
         };
     };
 
-    public func fromRawBytes(bytes : [Nat8], curve : Curve.Curve) : ?Signature {
+    public func fromBytesRaw(bytes : [Nat8], curve : Curve.Curve) : ?Signature {
         if (bytes.size() != 64) {
             return null;
         };

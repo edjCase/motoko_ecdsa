@@ -88,9 +88,15 @@ module {
         };
     };
 
-    /// Deserialize an uncompressed public key
-    public func fromBytesUncompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
-        if (bytes.size() != 65) return null;
+    public func fromBytes(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
+        switch (bytes.size()) {
+            case (65) fromBytesUncompressed(bytes, curve);
+            case (33) fromBytesCompressed(bytes, curve);
+            case (_) return null;
+        };
+    };
+
+    private func fromBytesUncompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
         if (bytes[0] != 0x04) return null;
         class range(begin : Nat, size : Nat) {
             var i = 0;
@@ -111,9 +117,7 @@ module {
         ?PublicKey(x, y, curve);
     };
 
-    public func fromBytesCompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
-        let n = 32;
-        if (bytes.size() != n + 1) return null;
+    private func fromBytesCompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
         let iter = bytes.vals();
         let even = switch (iter.next()) {
             case (?0x02) true;

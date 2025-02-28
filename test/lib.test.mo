@@ -563,15 +563,15 @@ for (curveKind in curveKinds.vals()) {
           do {
             let uncompressedBytes = publicKey.toBytesUncompressed();
             assert (uncompressedBytes == expectedBytes);
-            check(PublicKey.fromBytesUncompressed(uncompressedBytes, curve), publicKey);
+            check(PublicKey.fromBytes(uncompressedBytes, curve), publicKey);
           };
           do {
             let compressedBytes = publicKey.toBytesCompressed();
-            check(PublicKey.fromBytesCompressed(compressedBytes, curve), publicKey);
+            check(PublicKey.fromBytes(compressedBytes, curve), publicKey);
             let #fp(yNeg) = C.Fp.neg(#fp(publicKey.y));
             let publicKeyNeg = PublicKey.PublicKey(publicKey.x, yNeg, curve);
             let compressedBytesNeg = publicKeyNeg.toBytesCompressed();
-            check(PublicKey.fromBytesCompressed(compressedBytesNeg, curve), publicKeyNeg);
+            check(PublicKey.fromBytes(compressedBytesNeg, curve), publicKeyNeg);
           };
         },
       );
