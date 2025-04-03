@@ -3,6 +3,7 @@ import PublicKey "./PublicKey";
 import Signature "./Signature";
 import Iter "mo:base/Iter";
 import Result "mo:base/Result";
+import Debug "mo:base/Debug";
 import Sha256 "mo:sha2/Sha256";
 
 module {
@@ -15,8 +16,14 @@ module {
         public let curve = curve_;
 
         public func getPublicKey() : PublicKey.PublicKey {
-            let (#fp(x), #fp(y), #fp(_z)) = curve.mul_base(#fr(d));
-            PublicKey.PublicKey(x, y, curve);
+            switch (curve.fromJacobi(curve.mul_base(#fr(d)))) {
+                case (#zero) Debug.trap("Unable to get public key from private key, point was zero");
+                case (#affine(x, y)) {
+                    let #fp(x_val) = x;
+                    let #fp(y_val) = y;
+                    PublicKey.PublicKey(x_val, y_val, curve);
+                };
+            };
         };
 
         public func sign(
