@@ -35,11 +35,11 @@ module {
             if (signature.r == 0) return false;
             if (signature.s == 0) return false;
             if (curve.Fr.toNat(#fr(signature.s)) >= curve.params.rHalf) return false;
-            let #fr(z) = curve.getExponent(hashedMsg);
+            let #fr(hash_z) = curve.getExponent(hashedMsg);
             let w = curve.Fr.inv(#fr(signature.s));
-            let u1 = curve.Fr.mul(#fr(z), w);
+            let u1 = curve.Fr.mul(#fr(hash_z), w);
             let u2 = curve.Fr.mul(#fr(signature.r), w);
-            let xyz = (#fp(x), #fp(y), #fp(z));
+            let xyz = (#fp(x), #fp(y), #fp(1)); // Z-coordinate should be 1 for affine point
             let true = curve.isValid(xyz) else return false;
             let r = curve.add(curve.mul_base(u1), curve.mul(xyz, u2));
             switch (curve.fromJacobi(r)) {

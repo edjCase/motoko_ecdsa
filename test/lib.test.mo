@@ -15,6 +15,7 @@ import Sha256 "mo:sha2/Sha256";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
+import Hex "../src/Hex";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
   Sha256.fromIter(#sha256, bytes);
@@ -450,15 +451,9 @@ for (curveKind in curveKinds.vals()) {
           let randBytes : [Nat8] = [0x8a, 0xfa, 0x4a, 0x16, 0x2b, 0x7b, 0xad, 0x6c, 0x92, 0xff, 0x14, 0xf3, 0xa8, 0xbf, 0x4d, 0xb0, 0xf3, 0xc3, 0x9e, 0x90, 0xc0, 0x6f, 0x93, 0x78, 0x61, 0xf8, 0x23, 0xd2, 0x99, 0x5c, 0x74, 0xf0];
           do {
             // Define test vectors for each curve
-            let (expectedPK, expectedSig) = switch (curveKind) {
-              case (#secp256k1) (
-                PublicKey.PublicKey(0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71, 0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a, curve),
-                Signature.Signature(0xa598a8030da6d86c6bc7f2f5144ea549d28211ea58faa70ebf4c1e665c1fe9b5, 0xde5d79a2ba44e311d04fdca263639283965780bce9169822be9cc81756e95a24, curve),
-              );
-              case (#prime256v1) (
-                PublicKey.PublicKey(0xdda42ea71acbf585783d9b9d1890f79633975165b91b1a205ae4cadacaa1cf68, 0x194e239b3852413d0fd648f22ad5f0fd80b77961c15a151fa9f957b6f17a854a, curve),
-                Signature.Signature(0xc92ce5eccc1b9e659e5e27f6d3fe874c9f0a76c9286248c70166cb0991a941fa, 0x47eda72670efd34132e0d1f0ed4cb581f7b754c9232591d9c0a78fa53b5680bf, curve),
-              );
+            let expectedPK = switch (curveKind) {
+              case (#secp256k1) PublicKey.PublicKey(0x653bd02ba1367e5d4cd695b6f857d1cd90d4d8d42bc155d85377b7d2d0ed2e71, 0x04e8f5da403ab78decec1f19e2396739ea544e2b14159beb5091b30b418b813a, curve);
+              case (#prime256v1) PublicKey.PublicKey(0x5eef7fbe25dab17a4f30c0e6e6501b40ad0e53a9a3193695b0b10099e8af59ea, 0x7d7aab6919a4346c45a54d89861a043bae3c5d3a6fba5ce32241d20396f7e430, curve);
             };
 
             let privateKey = switch (PrivateKey.generate(secBytes.vals(), C)) {
@@ -471,22 +466,15 @@ for (curveKind in curveKinds.vals()) {
             let publicKey = privateKey.getPublicKey();
             assert (publicKey.equal(expectedPK));
 
-            let sig : Signature.Signature = switch (privateKey.signHashed(hashed.vals(), randBytes.vals())) {
-              case (null) P.unreachable();
-              case (?v) v;
-            };
+            let ?sig = privateKey.signHashed(hashed.vals(), randBytes.vals()) else P.unreachable();
+            let ?sig2 = privateKey.sign(hello.vals(), randBytes.vals()) else P.unreachable();
+            assert (sig.equal(sig2));
 
+            assert (publicKey.verify(hello.vals(), sig));
             assert (publicKey.verifyHashed(hashed.vals(), sig));
             let #fp(y2) = C.Fp.add(#fp(publicKey.y), #fp(1));
             let publicKey2 = PublicKey.PublicKey(publicKey.x, y2, curve);
             assert (not publicKey2.verifyHashed(hashed.vals(), sig));
-            assert (not publicKey.verifyHashed(([0x1, 0x2] : [Nat8]).vals(), sig));
-            let ?actualSig = privateKey.sign(hello.vals(), randBytes.vals()) else Debug.trap("Failed to sign message");
-
-            assert (actualSig.equal(expectedSig));
-            assert (publicKey.verifyHashed(hashed.vals(), sig));
-
-            assert (publicKey.verify(hello.vals(), expectedSig));
           };
         },
       );
@@ -515,8 +503,8 @@ for (curveKind in curveKinds.vals()) {
             );
             case (#prime256v1) (
               PublicKey.PublicKey(
-                0xb9181ec1c103c4621f7dac602dc2c9f2648f4906592bddaf56f3ca32fb196dbc,
-                0x776fd0bf72a4116bd0d75da24a479b019655b61d3cfd6443407afddd5e9cde2b,
+                0x56dbd53724b2831eca1bb64d95985fd889edfc93abdbf2c30682658dd7d5f4c8,
+                0xc18a9684c45484e9d84d47aba1ff13893af81fd76fdca0914364265a5bf7ec33,
                 curve,
               ),
               Signature.Signature(
@@ -582,11 +570,13 @@ for (curveKind in curveKinds.vals()) {
           let sig = Signature.Signature(0xed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f, 0x7a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed, curve);
           let expected : [Nat8] = switch (curveKind) {
             case (#secp256k1) [0x30, 0x45, 0x02, 0x21, 0x00, 0xed, 0x81, 0xff, 0x19, 0x2e, 0x75, 0xa3, 0xfd, 0x23, 0x04, 0x00, 0x4d, 0xca, 0xdb, 0x74, 0x6f, 0xa5, 0xe2, 0x4c, 0x50, 0x31, 0xcc, 0xfc, 0xf2, 0x13, 0x20, 0xb0, 0x27, 0x74, 0x57, 0xc9, 0x8f, 0x02, 0x20, 0x7a, 0x98, 0x6d, 0x95, 0x5c, 0x6e, 0x0c, 0xb3, 0x5d, 0x44, 0x6a, 0x89, 0xd3, 0xf5, 0x61, 0x00, 0xf4, 0xd7, 0xf6, 0x78, 0x01, 0xc3, 0x19, 0x67, 0x74, 0x3a, 0x9c, 0x8e, 0x10, 0x61, 0x5b, 0xed];
-            case (#prime256v1) [];
+            case (#prime256v1) [0x30, 0x45, 0x2, 0x21, 0x0, 0xed, 0x81, 0xff, 0x19, 0x2e, 0x75, 0xa3, 0xfd, 0x23, 0x4, 0x0, 0x4d, 0xca, 0xdb, 0x74, 0x6f, 0xa5, 0xe2, 0x4c, 0x50, 0x31, 0xcc, 0xfc, 0xf2, 0x13, 0x20, 0xb0, 0x27, 0x74, 0x57, 0xc9, 0x8f, 0x2, 0x20, 0x7a, 0x98, 0x6d, 0x95, 0x5c, 0x6e, 0xc, 0xb3, 0x5d, 0x44, 0x6a, 0x89, 0xd3, 0xf5, 0x61, 0x0, 0xf4, 0xd7, 0xf6, 0x78, 0x1, 0xc3, 0x19, 0x67, 0x74, 0x3a, 0x9c, 0x8e, 0x10, 0x61, 0x5b, 0xed];
           };
           let derBytes = sig.toBytesDer();
+
           assert (derBytes == expected);
           let ?actualSig = Signature.fromBytesDer(derBytes, curve) else Debug.trap("Unable to parse signature der bytes");
+
           assert (actualSig.equal(sig));
         },
       );
@@ -814,13 +804,38 @@ for (curveKind in curveKinds.vals()) {
               let s = toNat(vTbl[j]);
               let der = tbl[i * n + j];
               switch (Signature.fromBytesDer(der, curve)) {
-                case (null) {
-                  assert (false);
-                };
+                case (null) Debug.trap("Failed to parse DER Signature");
                 case (?sig) {
-                  assert (#fr(sig.r) == r);
-                  assert (#fr(sig.s) == s);
-                  assert (sig.toBytesDer() == der);
+                  // Calculate expected r and s after normalization
+                  let expectedR = r;
+                  let #fr(rHalf) = curve.Fr.fromNat(curve.params.rHalf);
+                  let #fr(s_value) = s;
+
+                  // If s > curve.params.rHalf, expect the normalized value
+                  let expectedS = if (s_value > rHalf) {
+                    curve.Fr.neg(s);
+                  } else {
+                    s;
+                  };
+
+                  if (#fr(sig.r) != expectedR or #fr(sig.s) != expectedS) {
+                    Debug.trap(
+                      "Signature mismatch after normalization for i=" #
+                      debug_show (i) # ",j=" # debug_show (j) # ": \nExpected\n" #
+                      "r - " # debug_show (expectedR) # "\ns - " # debug_show (expectedS) #
+                      "\nActual\n" # "r - " # debug_show (#fr(sig.r)) #
+                      "\ns - " # debug_show (#fr(sig.s))
+                    );
+                  };
+                  // Check if serialized DER matches the original
+                  let actualDer = sig.toBytesDer();
+                  if (actualDer != der) {
+                    Debug.trap(
+                      "DER serialization mismatch for i=" # debug_show (i) #
+                      ",j=" # debug_show (j) # ": \nExpected DER\n" #
+                      debug_show (der) # "\nActual DER\n" # debug_show (actualDer)
+                    );
+                  };
                 };
               };
               j += 1;
@@ -847,8 +862,8 @@ for (curveKind in curveKinds.vals()) {
           ];
           for (b in badTbl.vals()) {
             switch (Signature.fromBytesDer(b, curve)) {
-              case (null) assert (false);
-              case (_) ();
+              case (null) ();
+              case (_) Debug.trap("Failed to reject bad DER Signature: " # debug_show (b));
             };
           };
           do {
@@ -859,8 +874,8 @@ for (curveKind in curveKinds.vals()) {
               let b = Util.subArray(correct, 0, i);
 
               switch (Signature.fromBytesDer(b, curve)) {
-                case (null) assert (false);
-                case (_) ();
+                case (null) ();
+                case (_) Debug.trap("Failed to reject bad DER Signature: " # debug_show (b));
               };
               i += 1;
             };

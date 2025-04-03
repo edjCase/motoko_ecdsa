@@ -8,8 +8,10 @@ module {
     public class Signature(r_ : Nat, s_ : Nat, curve_ : Curve.Curve) {
         public let curve = curve_;
 
-        /// convert a signature to lower S signature
-        // TODO do this automatically or on demand?
+        public let original_r = r_;
+        public let original_s = s_;
+
+        // Normalized values for cryptographic operations
         public let (r, s) : (Nat, Nat) = if (curve.Fr.toNat(#fr(s_)) < curve.params.rHalf) {
             (r_, s_);
         } else {
@@ -21,8 +23,6 @@ module {
             return curve.equal(other.curve) and r == other.r and s == other.s;
         };
 
-        /// serialize to DER format
-        /// https://www.oreilly.com/library/view/programming-bitcoin/9781492031482/ch04.html
         public func toBytesDer() : [Nat8] {
             let buf = Buffer.Buffer<Nat8>(80);
             buf.add(0x30); // top marker
@@ -37,8 +37,8 @@ module {
                     buf.add(e);
                 };
             };
-            append(r);
-            append(s);
+            append(original_r);
+            append(original_s);
             buf.put(1, Nat8.fromNat(buf.size() - 2)); // set size
             Buffer.toArray(buf);
         };
