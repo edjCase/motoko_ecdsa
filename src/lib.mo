@@ -17,14 +17,19 @@ module {
 
   public func publicKeyFromBytes(
     bytes : [Nat8],
-    curve : Curve.Curve,
-  ) : ?PublicKey = PublicKeyModule.fromBytes(bytes, curve);
+    encoding : PublicKeyModule.KeyEncoding,
+  ) : ?PublicKey = PublicKeyModule.fromBytes(bytes, encoding);
 
   public type PrivateKey = PrivateKeyModule.PrivateKey;
   public func PrivateKey(
     d : Nat,
     curve : Curve.Curve,
   ) : PrivateKey = PrivateKeyModule.PrivateKey(d, curve);
+
+  public func privateKeyFromBytes(
+    bytes : [Nat8],
+    encoding : PrivateKeyModule.KeyEncoding,
+  ) : ?PrivateKey = PrivateKeyModule.fromBytes(bytes, encoding);
 
   public func generatePrivateKey(
     entropy : Iter.Iter<Nat8>,
@@ -37,4 +42,10 @@ module {
     s : Nat,
     curve : Curve.Curve,
   ) : Signature = SignatureModule.Signature(r, s, curve);
+
+  public func signatureFromBytes(
+    bytes : [Nat8],
+    curve : Curve.Curve,
+    encoding : SignatureModule.SignatureEncoding,
+  ) : ?Signature = SignatureModule.fromBytes(bytes, curve, encoding);
 };

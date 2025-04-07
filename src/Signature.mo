@@ -3,8 +3,15 @@ import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
 import Util "Util";
+import ASN1 "mo:asn1";
+import Int "mo:new-base/Int";
 
 module {
+    public type SignatureEncoding = {
+        #der;
+        #raw;
+    };
+
     public class Signature(r_ : Nat, s_ : Nat, curve_ : Curve.Curve) {
         public let curve = curve_;
 
@@ -44,52 +51,39 @@ module {
         };
     };
 
-    public func fromBytesDer(bytes : [Nat8], curve : Curve.Curve) : ?Signature {
-        if (bytes.size() <= 2 or bytes[0] != 0x30) return null;
-        if (bytes.size() != Nat8.toNat(bytes[1]) + 2) return null;
-        let read = func(a : [Nat8], begin : Nat) : ?(Nat, Nat) {
-            if (a.size() < begin + 2) return null;
-            if (a[begin] != 0x02) return null;
-            let n = Nat8.toNat(a[begin + 1]);
-            if (a.size() < begin + 1 + n) return null;
-            let top = a[begin + 2];
-            if (top >= 0x80) return null;
-            if (top == 0 and n > 1 and (a[begin + 2 + 1] & 0x80) == 0) return null;
-            var v = 0;
-            var i = 0;
-            while (i < n) {
-                v := v * 256 + Nat8.toNat(a[begin + 2 + i]);
-                i += 1;
+    public func fromBytes(bytes : [Nat8], curve : Curve.Curve, encoding : SignatureEncoding) : ?Signature {
+        switch (encoding) {
+            case (#raw) {
+                if (bytes.size() != 64) {
+                    return null;
+                };
+
+                // Extract r and s values
+                let rBytes = Array.subArray(bytes, 0, 32);
+                let sBytes = Array.subArray(bytes, 32, 32);
+
+                let r = Util.toNatAsBigEndian(rBytes.vals());
+                let s = Util.toNatAsBigEndian(sBytes.vals());
+
+                ?Signature(r, s, curve);
             };
-            ?(n + 2, v);
-        };
-        return switch (read(bytes, 2)) {
-            case (null) null;
-            case (?(read1, r)) {
-                switch (read(bytes, 2 + read1)) {
-                    case (null) null;
-                    case (?(read2, s)) {
-                        if (bytes.size() != 2 + read1 + read2) return null;
-                        ?Signature(r, s, curve);
+            case (#der) {
+                switch (ASN1.decodeDER(bytes.vals())) {
+                    case (#err(e)) return null;
+                    case (#ok(#sequence(sequence))) {
+                        if (sequence.size() != 2) return null;
+                        let #integer(r) = sequence[0] else return null;
+                        if (r < 0) return null;
+
+                        let #integer(s) = sequence[1] else return null;
+                        if (s < 0) return null;
+                        return ?Signature(Int.abs(r), Int.abs(s), curve);
                     };
+                    case (#ok(_)) return null; // Invalid DER format
                 };
             };
-        };
-    };
 
-    public func fromBytesRaw(bytes : [Nat8], curve : Curve.Curve) : ?Signature {
-        if (bytes.size() != 64) {
-            return null;
         };
 
-        // Extract r and s values
-        let rBytes = Array.subArray(bytes, 0, 32);
-        let sBytes = Array.subArray(bytes, 32, 32);
-
-        let r = Util.toNatAsBigEndian(rBytes.vals());
-        let s = Util.toNatAsBigEndian(sBytes.vals());
-
-        ?Signature(r, s, curve);
     };
-
 };

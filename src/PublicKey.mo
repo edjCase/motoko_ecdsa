@@ -4,8 +4,17 @@ import Array "mo:base/Array";
 import Sha256 "mo:sha2/Sha256";
 import Signature "./Signature";
 import Util "./Util";
+import ASN1 "mo:asn1";
+import IterTools "mo:itertools/Iter";
 
 module {
+
+    public type KeyEncoding = {
+        #der;
+        #raw : {
+            curve : Curve.Curve;
+        };
+    };
 
     public class PublicKey(
         x_ : Nat,
@@ -88,12 +97,63 @@ module {
         };
     };
 
-    public func fromBytes(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
-        switch (bytes.size()) {
-            case (65) fromBytesUncompressed(bytes, curve);
-            case (33) fromBytesCompressed(bytes, curve);
-            case (_) return null;
+    public func fromBytes(bytes : [Nat8], encoding : KeyEncoding) : ?PublicKey {
+        switch (encoding) {
+            case (#raw({ curve })) switch (bytes.size()) {
+                case (65) fromBytesUncompressed(bytes, curve);
+                case (33) fromBytesCompressed(bytes, curve);
+                case (_) return null;
+            };
+            case (#der) {
+                let asn1 = ASN1.decodeDER(bytes.vals());
+                switch (asn1) {
+                    case (#err(_)) return null;
+                    case (#ok(#sequence(sequence))) {
+                        if (sequence.size() < 2) return null;
+
+                        // First element is the algorithm identifier
+                        let #sequence(algorithmIdSequence) = sequence[0] else return null;
+                        if (algorithmIdSequence.size() != 2) return null;
+
+                        // Check algorithm OID
+                        let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return null;
+                        let curve = if (algorithmOid == [1, 3, 132, 0, 10]) {
+                            Curve.secp256k1();
+                        } else if (algorithmOid == [1, 2, 840, 10045, 3, 1, 7]) {
+                            Curve.prime256v1();
+                        } else {
+                            return null; // Unsupported curve
+                        };
+
+                        // Second element is the public key as BIT STRING
+                        let #bitString(keyBits) = sequence[1] else return null;
+
+                        let ?keyBytes = bitsToBytes(keyBits) else return null;
+
+                        fromBytes(keyBytes, #raw({ curve }));
+                    };
+                    case (#ok(_)) return null; // Invalid DER format
+                };
+            };
         };
+    };
+    private func bitsToBytes(bits : [Bool]) : ?[Nat8] {
+        if (bits.size() % 8 != 0) return null;
+        let byteCount = bits.size() / 8;
+        let bitsIter = bits.vals();
+        ?Array.tabulate(
+            byteCount,
+            func(_ : Nat) : Nat8 {
+                let byteInBits = IterTools.take(bitsIter, 8);
+                IterTools.fold(
+                    byteInBits,
+                    0 : Nat8,
+                    func(acc : Nat8, bit : Bool) : Nat8 {
+                        (acc << 1) + (if (bit) 1 else 0);
+                    },
+                );
+            },
+        );
     };
 
     private func fromBytesUncompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {

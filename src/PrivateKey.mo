@@ -4,8 +4,17 @@ import Signature "./Signature";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
 import Sha256 "mo:sha2/Sha256";
+import Util "Util";
+import ASN1 "mo:asn1";
 
 module {
+
+    public type KeyEncoding = {
+        #der;
+        #raw : {
+            curve : Curve.Curve;
+        };
+    };
 
     public class PrivateKey(
         d_ : Nat,
@@ -59,6 +68,60 @@ module {
         switch (curve.getExponent(entropy)) {
             case (#fr(0)) null; // bad luck with entropy
             case (#fr(s)) ?PrivateKey(s, curve);
+        };
+    };
+
+    public func fromBytes(bytes : [Nat8], encoding : KeyEncoding) : ?PrivateKey {
+        switch (encoding) {
+            case (#raw({ curve })) {
+                // For raw format, just convert bytes to a Nat
+                // Assuming standard EC key size (32 bytes for most curves)
+                if (bytes.size() != 32) {
+                    return null;
+                };
+
+                let d = Util.toNatAsBigEndian(bytes.vals());
+
+                // Validate the key is in range for the curve
+                if (d == 0 or d >= curve.params.r) {
+                    return null;
+                };
+
+                ?PrivateKey(d, curve);
+            };
+            case (#der) {
+                switch (ASN1.decodeDER(bytes.vals())) {
+                    case (#err(_)) return null;
+                    case (#ok(#sequence(sequence))) {
+                        if (sequence.size() < 3) return null;
+
+                        // First element is version (should be 1)
+                        let #integer(1) = sequence[0] else return null;
+
+                        // Second element is the algorithm identifier
+                        let #sequence(algorithmIdSequence) = sequence[1] else return null;
+                        if (algorithmIdSequence.size() != 2) return null;
+                        let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return null;
+                        let #null_ = algorithmIdSequence[1] else return null;
+                        let curve = if (algorithmOid == [1, 3, 132, 0, 10]) {
+                            Curve.secp256k1();
+                        } else if (algorithmOid == [1, 2, 840, 10045, 3, 1, 7]) {
+                            Curve.prime256v1();
+                        } else {
+                            return null; // Unsupported curve
+                        };
+
+                        // Third element is the private key as OCTET STRING
+                        let #octetString(keyBytes) = sequence[2] else return null;
+
+                        // TODO private key attributes?
+
+                        // Validate the key
+                        fromBytes(keyBytes, #raw({ curve }));
+                    };
+                    case (#ok(_)) return null; // Invalid DER format
+                };
+            };
         };
     };
 };
