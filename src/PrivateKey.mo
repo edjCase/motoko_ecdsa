@@ -2,7 +2,6 @@ import Curve "./Curve";
 import PublicKey "./PublicKey";
 import Signature "./Signature";
 import Iter "mo:base/Iter";
-import Result "mo:base/Result";
 import Debug "mo:base/Debug";
 import Sha256 "mo:sha2/Sha256";
 
@@ -53,17 +52,13 @@ module {
 
     };
 
-    public type GeneratePrivateKeyError = {
-        #entropyError : Text;
-    };
-
     public func generate(
-        rand : Iter.Iter<Nat8>,
+        entropy : Iter.Iter<Nat8>,
         curve : Curve.Curve,
-    ) : Result.Result<PrivateKey, GeneratePrivateKeyError> {
-        switch (curve.getExponent(rand)) {
-            case (#fr(0)) #err(#entropyError("Random exponent was 0, try again"));
-            case (#fr(s)) #ok(PrivateKey(s, curve));
+    ) : ?PrivateKey {
+        switch (curve.getExponent(entropy)) {
+            case (#fr(0)) null; // bad luck with entropy
+            case (#fr(s)) ?PrivateKey(s, curve);
         };
     };
 };

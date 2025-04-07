@@ -15,7 +15,6 @@ import Sha256 "mo:sha2/Sha256";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
-import Hex "../src/Hex";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
   Sha256.fromIter(#sha256, bytes);
@@ -456,10 +455,7 @@ for (curveKind in curveKinds.vals()) {
               case (#prime256v1) PublicKey.PublicKey(0x5eef7fbe25dab17a4f30c0e6e6501b40ad0e53a9a3193695b0b10099e8af59ea, 0x7d7aab6919a4346c45a54d89861a043bae3c5d3a6fba5ce32241d20396f7e430, curve);
             };
 
-            let privateKey = switch (PrivateKey.generate(secBytes.vals(), C)) {
-              case (#err(_)) P.unreachable();
-              case (#ok(v)) v;
-            };
+            let ?privateKey = PrivateKey.generate(secBytes.vals(), C) else P.unreachable();
 
             assert (privateKey.d == expectedSecKey);
 
