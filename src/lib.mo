@@ -16,7 +16,7 @@ module {
   ) : PublicKey = PublicKeyModule.PublicKey(x, y, curve);
 
   public func publicKeyFromBytes(
-    bytes : [Nat8],
+    bytes : Iter.Iter<Nat8>,
     encoding : PublicKeyModule.KeyEncoding,
   ) : ?PublicKey = PublicKeyModule.fromBytes(bytes, encoding);
 
@@ -27,7 +27,7 @@ module {
   ) : PrivateKey = PrivateKeyModule.PrivateKey(d, curve);
 
   public func privateKeyFromBytes(
-    bytes : [Nat8],
+    bytes : Iter.Iter<Nat8>,
     encoding : PrivateKeyModule.KeyEncoding,
   ) : ?PrivateKey = PrivateKeyModule.fromBytes(bytes, encoding);
 
@@ -44,7 +44,7 @@ module {
   ) : Signature = SignatureModule.Signature(r, s, curve);
 
   public func signatureFromBytes(
-    bytes : [Nat8],
+    bytes : Iter.Iter<Nat8>,
     curve : Curve.Curve,
     encoding : SignatureModule.SignatureEncoding,
   ) : ?Signature = SignatureModule.fromBytes(bytes, curve, encoding);

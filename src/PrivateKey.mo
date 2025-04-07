@@ -6,6 +6,7 @@ import Debug "mo:base/Debug";
 import Sha256 "mo:sha2/Sha256";
 import Util "Util";
 import ASN1 "mo:asn1";
+import IterTools "mo:itertools/Iter";
 
 module {
 
@@ -71,16 +72,11 @@ module {
         };
     };
 
-    public func fromBytes(bytes : [Nat8], encoding : KeyEncoding) : ?PrivateKey {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : KeyEncoding) : ?PrivateKey {
         switch (encoding) {
             case (#raw({ curve })) {
-                // For raw format, just convert bytes to a Nat
-                // Assuming standard EC key size (32 bytes for most curves)
-                if (bytes.size() != 32) {
-                    return null;
-                };
 
-                let d = Util.toNatAsBigEndian(bytes.vals());
+                let d = Util.toNatAsBigEndian(IterTools.take(bytes, 32));
 
                 // Validate the key is in range for the curve
                 if (d == 0 or d >= curve.params.r) {
@@ -90,7 +86,7 @@ module {
                 ?PrivateKey(d, curve);
             };
             case (#der) {
-                switch (ASN1.decodeDER(bytes.vals())) {
+                switch (ASN1.decodeDER(bytes)) {
                     case (#err(_)) return null;
                     case (#ok(#sequence(sequence))) {
                         if (sequence.size() < 3) return null;
@@ -117,7 +113,7 @@ module {
                         // TODO private key attributes?
 
                         // Validate the key
-                        fromBytes(keyBytes, #raw({ curve }));
+                        fromBytes(keyBytes.vals(), #raw({ curve }));
                     };
                     case (#ok(_)) return null; // Invalid DER format
                 };

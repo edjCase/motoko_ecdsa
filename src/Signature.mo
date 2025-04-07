@@ -1,10 +1,11 @@
 import Curve "./Curve";
-import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
 import Util "Util";
 import ASN1 "mo:asn1";
 import Int "mo:new-base/Int";
+import Iter "mo:new-base/Iter";
+import IterTools "mo:itertools/Iter";
 
 module {
     public type SignatureEncoding = {
@@ -51,24 +52,20 @@ module {
         };
     };
 
-    public func fromBytes(bytes : [Nat8], curve : Curve.Curve, encoding : SignatureEncoding) : ?Signature {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, curve : Curve.Curve, encoding : SignatureEncoding) : ?Signature {
         switch (encoding) {
             case (#raw) {
-                if (bytes.size() != 64) {
-                    return null;
-                };
-
                 // Extract r and s values
-                let rBytes = Array.subArray(bytes, 0, 32);
-                let sBytes = Array.subArray(bytes, 32, 32);
+                let rBytes = IterTools.take(bytes, 32);
+                let sBytes = IterTools.take(bytes, 32);
 
-                let r = Util.toNatAsBigEndian(rBytes.vals());
-                let s = Util.toNatAsBigEndian(sBytes.vals());
+                let r = Util.toNatAsBigEndian(rBytes);
+                let s = Util.toNatAsBigEndian(sBytes);
 
                 ?Signature(r, s, curve);
             };
             case (#der) {
-                switch (ASN1.decodeDER(bytes.vals())) {
+                switch (ASN1.decodeDER(bytes)) {
                     case (#err(e)) return null;
                     case (#ok(#sequence(sequence))) {
                         if (sequence.size() != 2) return null;

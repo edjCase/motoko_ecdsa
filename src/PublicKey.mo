@@ -97,15 +97,33 @@ module {
         };
     };
 
-    public func fromBytes(bytes : [Nat8], encoding : KeyEncoding) : ?PublicKey {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : KeyEncoding) : ?PublicKey {
         switch (encoding) {
-            case (#raw({ curve })) switch (bytes.size()) {
-                case (65) fromBytesUncompressed(bytes, curve);
-                case (33) fromBytesCompressed(bytes, curve);
-                case (_) return null;
+            case (#raw({ curve })) {
+                let even = switch (bytes.next()) {
+                    case (?0x02) true;
+                    case (?0x03) false;
+                    case (?0x04) {
+                        // Uncompressed key
+                        let n = 32;
+                        let x = Util.toNatAsBigEndian(IterTools.take(bytes, n));
+                        let y = Util.toNatAsBigEndian(IterTools.take(bytes, n));
+                        if (x >= curve.params.p) return null;
+                        if (y >= curve.params.p) return null;
+                        let pub = (#fp(x), #fp(y));
+                        if (not curve.isValidAffine(pub)) return null;
+                        return ?PublicKey(x, y, curve);
+                    };
+                    case _ return null;
+                };
+                // Compressed key
+                let x = Util.toNatAsBigEndian(bytes);
+                if (x >= curve.params.p) return null;
+                let ?#fp(y) = curve.getYfromX(#fp(x), even) else return null;
+                ?PublicKey(x, y, curve);
             };
             case (#der) {
-                let asn1 = ASN1.decodeDER(bytes.vals());
+                let asn1 = ASN1.decodeDER(bytes);
                 switch (asn1) {
                     case (#err(_)) return null;
                     case (#ok(#sequence(sequence))) {
@@ -130,7 +148,7 @@ module {
 
                         let ?keyBytes = bitsToBytes(keyBits) else return null;
 
-                        fromBytes(keyBytes, #raw({ curve }));
+                        fromBytes(keyBytes.vals(), #raw({ curve }));
                     };
                     case (#ok(_)) return null; // Invalid DER format
                 };
@@ -156,37 +174,4 @@ module {
         );
     };
 
-    private func fromBytesUncompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
-        if (bytes[0] != 0x04) return null;
-        class range(begin : Nat, size : Nat) {
-            var i = 0;
-            public func next() : ?Nat8 {
-                if (i == size) return null;
-                let ret = ?bytes[begin + i];
-                i += 1;
-                ret;
-            };
-        };
-        let n = 32;
-        let x = Util.toNatAsBigEndian(range(1, n));
-        let y = Util.toNatAsBigEndian(range(1 + n, n));
-        if (x >= curve.params.p) return null;
-        if (y >= curve.params.p) return null;
-        let pub = (#fp(x), #fp(y));
-        if (not curve.isValidAffine(pub)) return null;
-        ?PublicKey(x, y, curve);
-    };
-
-    private func fromBytesCompressed(bytes : [Nat8], curve : Curve.Curve) : ?PublicKey {
-        let iter = bytes.vals();
-        let even = switch (iter.next()) {
-            case (?0x02) true;
-            case (?0x03) false;
-            case _ return null;
-        };
-        let x = Util.toNatAsBigEndian(iter);
-        if (x >= curve.params.p) return null;
-        let ?#fp(y) = curve.getYfromX(#fp(x), even) else return null;
-        ?PublicKey(x, y, curve);
-    };
 };

@@ -549,15 +549,15 @@ for (curveKind in curveKinds.vals()) {
           do {
             let uncompressedBytes = publicKey.toBytesUncompressed();
             assert (uncompressedBytes == expectedBytes);
-            check(PublicKey.fromBytes(uncompressedBytes, #raw({ curve })), publicKey);
+            check(PublicKey.fromBytes(uncompressedBytes.vals(), #raw({ curve })), publicKey);
           };
           do {
             let compressedBytes = publicKey.toBytesCompressed();
-            check(PublicKey.fromBytes(compressedBytes, #raw({ curve })), publicKey);
+            check(PublicKey.fromBytes(compressedBytes.vals(), #raw({ curve })), publicKey);
             let #fp(yNeg) = C.Fp.neg(#fp(publicKey.y));
             let publicKeyNeg = PublicKey.PublicKey(publicKey.x, yNeg, curve);
             let compressedBytesNeg = publicKeyNeg.toBytesCompressed();
-            check(PublicKey.fromBytes(compressedBytesNeg, #raw({ curve })), publicKeyNeg);
+            check(PublicKey.fromBytes(compressedBytesNeg.vals(), #raw({ curve })), publicKeyNeg);
           };
         },
       );
@@ -573,7 +573,7 @@ for (curveKind in curveKinds.vals()) {
           let derBytes = sig.toBytesDer();
 
           assert (derBytes == expected);
-          let ?actualSig = Signature.fromBytes(derBytes, curve, #der) else Debug.trap("Unable to parse signature der bytes");
+          let ?actualSig = Signature.fromBytes(derBytes.vals(), curve, #der) else Debug.trap("Unable to parse signature der bytes");
 
           assert (actualSig.equal(sig));
         },
@@ -801,7 +801,7 @@ for (curveKind in curveKinds.vals()) {
             while (j < n) {
               let s = toNat(vTbl[j]);
               let der = tbl[i * n + j];
-              switch (Signature.fromBytes(der, curve, #der)) {
+              switch (Signature.fromBytes(der.vals(), curve, #der)) {
                 case (null) Debug.trap("Failed to parse DER Signature");
                 case (?sig) {
                   // Calculate expected r and s after normalization
@@ -858,7 +858,7 @@ for (curveKind in curveKinds.vals()) {
             [0x30, 0x06, 0x02, 0x01, 0x80 /*negative*/, 0x02, 0x01, 0x00],
           ];
           for (b in badTbl.vals()) {
-            switch (Signature.fromBytes(b, curve, #der)) {
+            switch (Signature.fromBytes(b.vals(), curve, #der)) {
               case (null) ();
               case (_) Debug.trap("Failed to reject bad DER Signature: " # debug_show (b));
             };
@@ -870,7 +870,7 @@ for (curveKind in curveKinds.vals()) {
             while (i < n) {
               let b = Util.subArray(correct, 0, i);
 
-              switch (Signature.fromBytes(b, curve, #der)) {
+              switch (Signature.fromBytes(b.vals(), curve, #der)) {
                 case (null) ();
                 case (_) Debug.trap("Failed to reject bad DER Signature: " # debug_show (b));
               };
@@ -905,7 +905,7 @@ for (curveKind in curveKinds.vals()) {
       let rawBytes = Util.toBigEndianPad(32, privateKeyVal);
 
       // Test parsing from raw format
-      let ?parsedFromRaw = PrivateKey.fromBytes(rawBytes, #raw({ curve })) else Debug.trap("Failed to parse raw bytes");
+      let ?parsedFromRaw = PrivateKey.fromBytes(rawBytes.vals(), #raw({ curve })) else Debug.trap("Failed to parse raw bytes");
       assert (parsedFromRaw.curve.kind == curve.kind);
       assert (parsedFromRaw.d == privateKeyVal);
       assert (parsedFromRaw.getPublicKey().equal(publicKey));
@@ -923,7 +923,7 @@ for (curveKind in curveKinds.vals()) {
       };
 
       // Test parsing from DER format
-      let ?parsedFromDer = PrivateKey.fromBytes(derBytes, #der) else Debug.trap("Failed to parse DER bytes");
+      let ?parsedFromDer = PrivateKey.fromBytes(derBytes.vals(), #der) else Debug.trap("Failed to parse DER bytes");
       assert (parsedFromDer.d == privateKeyVal);
       assert (parsedFromDer.getPublicKey().equal(publicKey));
     },
@@ -933,37 +933,33 @@ for (curveKind in curveKinds.vals()) {
     "privateKeyEdgeCasesTest",
     func() {
       // Test parsing invalid keys
-      let assertIsNull = func(key : ?PrivateKey.PrivateKey) {
+      let assertIsNull = func(key : ?PrivateKey.PrivateKey, label_ : Text) {
         switch (key) {
           case (null) ();
           case (_) {
             // If the key is not null, it should be a valid private key
-            Debug.trap("Expected null key");
+            Debug.trap("Expected null key for '" # label_ # "', but got a valid key");
           };
         };
       };
 
       // Empty bytes
       let emptyBytes : [Nat8] = [];
-      assertIsNull(PrivateKey.fromBytes(emptyBytes, #raw({ curve })));
-      assertIsNull(PrivateKey.fromBytes(emptyBytes, #der));
-
-      // Wrong size for raw format (not 32 bytes)
-      let wrongSizeBytes : [Nat8] = Array.tabulate<Nat8>(16, func(i) = Nat8.fromNat(i));
-      assertIsNull(PrivateKey.fromBytes(wrongSizeBytes, #raw({ curve })));
+      assertIsNull(PrivateKey.fromBytes(emptyBytes.vals(), #raw({ curve })), "empty raw");
+      assertIsNull(PrivateKey.fromBytes(emptyBytes.vals(), #der), "empty der");
 
       // Invalid DER structure
       let invalidDer : [Nat8] = [0x30, 0x03, 0x02, 0x01, 0x01]; // Too short
-      assertIsNull(PrivateKey.fromBytes(invalidDer, #der));
+      assertIsNull(PrivateKey.fromBytes(invalidDer.vals(), #der), "invalid der");
 
       // Zero value (invalid for EC private key)
       let zeroKeyRaw = Array.tabulate<Nat8>(32, func(_) = 0);
-      assertIsNull(PrivateKey.fromBytes(zeroKeyRaw, #raw({ curve })));
+      assertIsNull(PrivateKey.fromBytes(zeroKeyRaw.vals(), #raw({ curve })), "zero raw");
 
       // Value >= curve order (invalid for EC private key)
       let tooLargeValue = curve.params.r;
       let tooLargeKeyRaw = Util.toBigEndianPad(32, tooLargeValue);
-      assertIsNull(PrivateKey.fromBytes(tooLargeKeyRaw, #raw({ curve })));
+      assertIsNull(PrivateKey.fromBytes(tooLargeKeyRaw.vals(), #raw({ curve })), "too large raw");
     },
   );
 };
