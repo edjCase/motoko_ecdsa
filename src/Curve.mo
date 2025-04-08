@@ -95,7 +95,10 @@ module {
 
     public func getExponent(
       rand : Iter.Iter<Nat8>
-    ) : FrElt = Fr.fromNat(Util.toNatAsBigEndian(rand));
+    ) : FrElt {
+      let ?nat = Util.toNatAsBigEndian(rand) else Debug.trap("Unable to convert rand to Nat");
+      Fr.fromNat(nat);
+    };
 
     // return x^3 + ax + b
     public func getYsqrFromX(x : FpElt) : FpElt = Fp.add(Fp.mul(Fp.add(Fp.sqr(x), a_), x), b_);

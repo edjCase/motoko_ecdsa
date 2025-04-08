@@ -17,6 +17,7 @@ import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
 import ASN1 "mo:asn1";
+import IterTools "mo:itertools/Iter";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
   Sha256.fromIter(#sha256, bytes);
@@ -154,7 +155,7 @@ for (curveKind in curveKinds.vals()) {
         "toBigEndianPadTest",
         func() {
           let tbl = [
-            ([] : [Nat8], 0x0),
+            ([0x0] : [Nat8], 0x0),
             ([0x12] : [Nat8], 0x12),
             ([0x12, 0x34] : [Nat8], 0x1234),
             ([0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0] : [Nat8], 0x123456789abcdef0),
@@ -162,7 +163,7 @@ for (curveKind in curveKinds.vals()) {
           ];
           for (i in tbl.keys()) {
             let (b, v) = tbl[i];
-            assert (Util.toNatAsBigEndian(b.vals()) == v);
+            assert (Util.toNatAsBigEndian(b.vals()) == ?v);
             assert (Util.toBigEndianPad(b.size(), v) == b);
           };
           assert (Util.toBigEndianPad(1, 0) == ([0x00] : [Nat8]));
@@ -868,11 +869,11 @@ for (curveKind in curveKinds.vals()) {
             let n = correct.size();
             var i = 0;
             while (i < n) {
-              let b = Util.subArray(correct, 0, i);
+              let b = IterTools.take(correct.vals(), i);
 
-              switch (Signature.fromBytes(b.vals(), curve, #der)) {
+              switch (Signature.fromBytes(b, curve, #der)) {
                 case (null) ();
-                case (_) Debug.trap("Failed to reject bad DER Signature: " # debug_show (b));
+                case (_) Debug.trap("Failed to reject bad DER Signature: " # debug_show (i));
               };
               i += 1;
             };

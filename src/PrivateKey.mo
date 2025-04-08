@@ -76,7 +76,7 @@ module {
         switch (encoding) {
             case (#raw({ curve })) {
 
-                let d = Util.toNatAsBigEndian(IterTools.take(bytes, 32));
+                let ?d = Util.toNatAsBigEndian(IterTools.take(bytes, 32)) else return null;
 
                 // Validate the key is in range for the curve
                 if (d == 0 or d >= curve.params.r) {

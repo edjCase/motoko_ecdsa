@@ -59,8 +59,8 @@ module {
                 let rBytes = IterTools.take(bytes, 32);
                 let sBytes = IterTools.take(bytes, 32);
 
-                let r = Util.toNatAsBigEndian(rBytes);
-                let s = Util.toNatAsBigEndian(sBytes);
+                let ?r = Util.toNatAsBigEndian(rBytes) else return null;
+                let ?s = Util.toNatAsBigEndian(sBytes) else return null;
 
                 ?Signature(r, s, curve);
             };

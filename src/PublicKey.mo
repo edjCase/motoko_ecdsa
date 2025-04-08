@@ -106,8 +106,8 @@ module {
                     case (?0x04) {
                         // Uncompressed key
                         let n = 32;
-                        let x = Util.toNatAsBigEndian(IterTools.take(bytes, n));
-                        let y = Util.toNatAsBigEndian(IterTools.take(bytes, n));
+                        let ?x = Util.toNatAsBigEndian(IterTools.take(bytes, n)) else return null;
+                        let ?y = Util.toNatAsBigEndian(IterTools.take(bytes, n)) else return null;
                         if (x >= curve.params.p) return null;
                         if (y >= curve.params.p) return null;
                         let pub = (#fp(x), #fp(y));
@@ -117,7 +117,7 @@ module {
                     case _ return null;
                 };
                 // Compressed key
-                let x = Util.toNatAsBigEndian(bytes);
+                let ?x = Util.toNatAsBigEndian(bytes) else return null;
                 if (x >= curve.params.p) return null;
                 let ?#fp(y) = curve.getYfromX(#fp(x), even) else return null;
                 ?PublicKey(x, y, curve);
