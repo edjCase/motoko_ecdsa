@@ -1,4 +1,4 @@
-import Curve "./Curve";
+import CurveModule "./Curve";
 import PublicKeyModule "PublicKey";
 import PrivateKeyModule "PrivateKey";
 import SignatureModule "Signature";
@@ -6,13 +6,18 @@ import Iter "mo:base/Iter";
 
 module {
 
-  public type CurveKind = Curve.CurveKind;
+  public type CurveKind = CurveModule.CurveKind;
+
+  public type Curve = CurveModule.Curve;
+  public func Curve(kind : CurveKind) : Curve = CurveModule.Curve(kind);
+  public func secp256k1Curve() : Curve = CurveModule.secp256k1();
+  public func prime256v1Curve() : Curve = CurveModule.prime256v1();
 
   public type PublicKey = PublicKeyModule.PublicKey;
   public func PublicKey(
     x : Nat,
     y : Nat,
-    curve : Curve.Curve,
+    curve : CurveModule.Curve,
   ) : PublicKey = PublicKeyModule.PublicKey(x, y, curve);
 
   public func publicKeyFromBytes(
@@ -23,7 +28,7 @@ module {
   public type PrivateKey = PrivateKeyModule.PrivateKey;
   public func PrivateKey(
     d : Nat,
-    curve : Curve.Curve,
+    curve : CurveModule.Curve,
   ) : PrivateKey = PrivateKeyModule.PrivateKey(d, curve);
 
   public func privateKeyFromBytes(
@@ -33,19 +38,19 @@ module {
 
   public func generatePrivateKey(
     entropy : Iter.Iter<Nat8>,
-    curve : Curve.Curve,
+    curve : CurveModule.Curve,
   ) : ?PrivateKey = PrivateKeyModule.generate(entropy, curve);
 
   public type Signature = SignatureModule.Signature;
   public func Signature(
     r : Nat,
     s : Nat,
-    curve : Curve.Curve,
+    curve : CurveModule.Curve,
   ) : Signature = SignatureModule.Signature(r, s, curve);
 
   public func signatureFromBytes(
     bytes : Iter.Iter<Nat8>,
-    curve : Curve.Curve,
+    curve : CurveModule.Curve,
     encoding : SignatureModule.SignatureEncoding,
   ) : ?Signature = SignatureModule.fromBytes(bytes, curve, encoding);
 };
