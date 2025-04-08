@@ -135,18 +135,19 @@ module {
 
                         // Check algorithm OID
                         let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return null;
-                        let curve = if (algorithmOid == [1, 3, 132, 0, 10]) {
+                        if (algorithmOid != [1, 2, 840, 10_045, 2, 1]) return null;
+
+                        let #objectIdentifier(algorithmCurveOid) = algorithmIdSequence[1] else return null;
+                        let curve = if (algorithmCurveOid == [1, 3, 132, 0, 10]) {
                             Curve.secp256k1();
-                        } else if (algorithmOid == [1, 2, 840, 10045, 3, 1, 7]) {
+                        } else if (algorithmCurveOid == [1, 2, 840, 10045, 3, 1, 7]) {
                             Curve.prime256v1();
                         } else {
                             return null; // Unsupported curve
                         };
 
                         // Second element is the public key as BIT STRING
-                        let #bitString(keyBits) = sequence[1] else return null;
-
-                        let ?keyBytes = bitsToBytes(keyBits) else return null;
+                        let #bitString({ data = keyBytes; unusedBits = 0 }) = sequence[1] else return null;
 
                         fromBytes(keyBytes.vals(), #raw({ curve }));
                     };
@@ -154,24 +155,6 @@ module {
                 };
             };
         };
-    };
-    private func bitsToBytes(bits : [Bool]) : ?[Nat8] {
-        if (bits.size() % 8 != 0) return null;
-        let byteCount = bits.size() / 8;
-        let bitsIter = bits.vals();
-        ?Array.tabulate(
-            byteCount,
-            func(_ : Nat) : Nat8 {
-                let byteInBits = IterTools.take(bitsIter, 8);
-                IterTools.fold(
-                    byteInBits,
-                    0 : Nat8,
-                    func(acc : Nat8, bit : Bool) : Nat8 {
-                        (acc << 1) + (if (bit) 1 else 0);
-                    },
-                );
-            },
-        );
     };
 
 };

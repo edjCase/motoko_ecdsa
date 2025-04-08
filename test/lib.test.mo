@@ -962,4 +962,27 @@ for (curveKind in curveKinds.vals()) {
       assertIsNull(PrivateKey.fromBytes(tooLargeKeyRaw.vals(), #raw({ curve })), "too large raw");
     },
   );
+
+  test(
+    "publicKeyFromBytes",
+    func() {
+      let (x, y, key) : (Nat, Nat, Blob) = switch (curveKind) {
+        case (#secp256k1) (
+          38_429_425_455_415_631_134_142_539_000_605_002_670_886_210_329_907_085_845_074_048_940_350_736_307_511,
+          575_828_099_184_175_788_894_911_350_722_390_938_371_747_048_717_700_577_109_830_429_869_990_220_126,
+          "\30\56\30\10\06\07\2a\86\48\ce\3d\02\01\06\05\2b\81\04\00\0a\03\42\00\04\54\f6\48\b4\aa\86\75\98\ec\a3\36\59\85\5a\2e\99\bf\35\22\b9\38\a3\dd\3c\d3\08\e4\5c\42\da\15\37\01\45\e8\3b\45\b7\26\ad\23\f5\ba\f6\9f\68\46\0e\27\d2\e7\66\cc\7e\d2\fd\6e\ca\90\ae\33\d8\11\5e",
+        );
+        case (#prime256v1) (
+          8_246_848_202_158_231_730_716_563_389_865_169_855_763_682_067_620_766_047_489_138_422_753_650_078_002,
+          4_581_609_636_742_156_842_656_836_398_542_464_111_512_942_411_741_276_644_977_917_616_723_361_211_554,
+          "\30\59\30\13\06\07\2a\86\48\ce\3d\02\01\06\08\2a\86\48\ce\3d\03\01\07\03\42\00\04\12\3b\8c\f8\c0\97\44\89\7e\dc\31\52\2d\7c\ad\e9\49\37\b8\43\01\ae\b2\a8\1c\50\58\ed\cf\88\f1\32\0a\21\19\62\72\4f\a3\c4\c1\e4\16\af\1c\3f\9d\78\46\77\53\3d\b9\68\dd\0d\a4\76\28\d0\0f\0b\24\a2",
+        );
+      };
+      let ?publicKey = PublicKey.fromBytes(key.vals(), #der) else Debug.trap("Failed to parse public key");
+      assert (publicKey.curve.kind == curveKind);
+      if (publicKey.x != x or publicKey.y != y) {
+        Debug.trap("Public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (publicKey.x) # "\ny=" # debug_show (publicKey.y));
+      };
+    },
+  );
 };
