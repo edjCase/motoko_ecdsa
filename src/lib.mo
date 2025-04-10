@@ -3,6 +3,7 @@ import PublicKeyModule "PublicKey";
 import PrivateKeyModule "PrivateKey";
 import SignatureModule "Signature";
 import Iter "mo:base/Iter";
+import Result "mo:new-base/Result";
 
 module {
 
@@ -23,7 +24,7 @@ module {
   public func publicKeyFromBytes(
     bytes : Iter.Iter<Nat8>,
     encoding : PublicKeyModule.InputKeyEncoding,
-  ) : ?PublicKey = PublicKeyModule.fromBytes(bytes, encoding);
+  ) : Result.Result<PublicKey, Text> = PublicKeyModule.fromBytes(bytes, encoding);
 
   public type PrivateKey = PrivateKeyModule.PrivateKey;
   public func PrivateKey(

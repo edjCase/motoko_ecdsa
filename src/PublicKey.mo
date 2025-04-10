@@ -12,6 +12,7 @@ import BaseX "mo:base-x-encoder";
 import Nat "mo:new-base/Nat";
 import Nat8 "mo:new-base/Nat8";
 import Text "mo:new-base/Text";
+import Result "mo:new-base/Result";
 
 module {
 
@@ -38,6 +39,16 @@ module {
         #hex : {
             byteEncoding : OutputKeyEncoding;
             format : BaseX.HexOutputFormat;
+        };
+    };
+    public type InputTextFormat = {
+        #pem;
+        #base64 : {
+            byteEncoding : InputKeyEncoding;
+        };
+        #hex : {
+            byteEncoding : InputKeyEncoding;
+            format : BaseX.HexInputFormat;
         };
     };
 
@@ -106,7 +117,6 @@ module {
                     # formatted
                     # "\n-----END PUBLIC KEY-----";
                 };
-
                 case (#jwk) {
                     // Get uncompressed point format (0x04 + X + Y coordinates)
                     let bytes = toBytes(#uncompressed);
@@ -194,7 +204,7 @@ module {
         };
     };
 
-    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputKeyEncoding) : ?PublicKey {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputKeyEncoding) : Result.Result<PublicKey, Text> {
         switch (encoding) {
             case (#raw({ curve })) {
                 let even = switch (bytes.next()) {
@@ -203,55 +213,110 @@ module {
                     case (?0x04) {
                         // Uncompressed key
                         let n = 32;
-                        let ?x = Util.toNatAsBigEndian(IterTools.take(bytes, n)) else return null;
-                        let ?y = Util.toNatAsBigEndian(IterTools.take(bytes, n)) else return null;
-                        if (x >= curve.params.p) return null;
-                        if (y >= curve.params.p) return null;
+                        let ?x = Util.toNatAsBigEndian(IterTools.take(bytes, n)) else return #err("Unable to parse x coordinate");
+                        let ?y = Util.toNatAsBigEndian(IterTools.take(bytes, n)) else return #err("Unsable to parse y coordinate");
+                        if (x >= curve.params.p) return #err("Invalid x coordinate, out of range");
+                        if (y >= curve.params.p) return #err("Invalid y coordinate, out of range");
                         let pub = (#fp(x), #fp(y));
-                        if (not curve.isValidAffine(pub)) return null;
-                        return ?PublicKey(x, y, curve);
+                        if (not curve.isValidAffine(pub)) return #err("Invalid x and y points, not on curve");
+                        return #ok(PublicKey(x, y, curve));
                     };
-                    case _ return null;
+                    case (?prefix) return #err("Invalid key prefix: " # Nat8.toText(prefix));
+                    case (null) return #err("Not enough bytes for key");
                 };
                 // Compressed key
-                let ?x = Util.toNatAsBigEndian(bytes) else return null;
-                if (x >= curve.params.p) return null;
-                let ?#fp(y) = curve.getYfromX(#fp(x), even) else return null;
-                ?PublicKey(x, y, curve);
+                let ?x = Util.toNatAsBigEndian(bytes) else return #err("Unable to parse x coordinate");
+                if (x >= curve.params.p) return #err("Invalid x coordinate, out of range");
+                let ?#fp(y) = curve.getYfromX(#fp(x), even) else return #err("Unable to calculate y coordinate");
+                #ok(PublicKey(x, y, curve));
             };
             case (#der) {
                 let asn1 = ASN1.decodeDER(bytes);
                 switch (asn1) {
-                    case (#err(_)) return null;
+                    case (#err(e)) return #err("Invalid ANS1 DER format: " # e);
                     case (#ok(#sequence(sequence))) {
-                        if (sequence.size() < 2) return null;
+                        if (sequence.size() < 2) return #err("Invalid DER format: expected sequence of length 2");
 
                         // First element is the algorithm identifier
-                        let #sequence(algorithmIdSequence) = sequence[0] else return null;
-                        if (algorithmIdSequence.size() != 2) return null;
+                        let #sequence(algorithmIdSequence) = sequence[0] else return #err("Invalid DER format: expected algorithm identifier sequence");
+                        if (algorithmIdSequence.size() != 2) return #err("Invalid DER format: expected algorithm identifier sequence of length 2");
 
                         // Check algorithm OID
-                        let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return null;
-                        if (algorithmOid != [1, 2, 840, 10_045, 2, 1]) return null;
+                        let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return #err("Invalid DER format: expected algorithm OID");
+                        if (algorithmOid != [1, 2, 840, 10_045, 2, 1]) return #err("Invalid DER format: unsupported algorithm OID");
 
-                        let #objectIdentifier(algorithmCurveOid) = algorithmIdSequence[1] else return null;
+                        let #objectIdentifier(algorithmCurveOid) = algorithmIdSequence[1] else return #err("Invalid DER format: expected algorithm curve OID");
                         let curve = if (algorithmCurveOid == [1, 3, 132, 0, 10]) {
                             Curve.secp256k1();
                         } else if (algorithmCurveOid == [1, 2, 840, 10045, 3, 1, 7]) {
                             Curve.prime256v1();
                         } else {
-                            return null; // Unsupported curve
+                            return #err("Invalid DER format: unsupported curve OID - " # debug_show algorithmCurveOid);
                         };
 
                         // Second element is the public key as BIT STRING
-                        let #bitString({ data = keyBytes; unusedBits = 0 }) = sequence[1] else return null;
+                        let #bitString({ data = keyBytes; unusedBits = 0 }) = sequence[1] else return #err("Invalid DER format: expected BIT STRING");
 
                         fromBytes(keyBytes.vals(), #raw({ curve }));
                     };
-                    case (#ok(_)) return null; // Invalid DER format
+                    case (#ok(_)) return #err("Invalid DER format: expected sequence");
                 };
             };
         };
+    };
+
+    public func fromText(value : Text, format : InputTextFormat) : Result.Result<PublicKey, Text> {
+        switch (format) {
+            case (#hex({ byteEncoding; format })) {
+                // Convert hex to bytes
+                switch (BaseX.fromHex(value, format)) {
+                    case (#ok(bytes)) {
+                        switch (fromBytes(bytes.vals(), byteEncoding)) {
+                            case (#ok(pubKey)) #ok(pubKey);
+                            case (#err(e)) #err("Invalid public key bytes: " # e);
+                        };
+                    };
+                    case (#err(e)) #err("Invalid hex format: " # e);
+                };
+            };
+
+            case (#base64({ byteEncoding })) {
+                // Convert base64 to bytes
+                switch (BaseX.fromBase64(value)) {
+                    case (#ok(bytes)) {
+                        switch (fromBytes(bytes.vals(), byteEncoding)) {
+                            case (#ok(pubKey)) #ok(pubKey);
+                            case (#err(e)) #err("Invalid public key bytes: " # e);
+                        };
+                    };
+                    case (#err(e)) #err("Invalid base64 format: " # e);
+                };
+            };
+            case (#pem) {
+                // Parse PEM format
+                switch (extractPEMContent(value)) {
+                    case (#ok(base64Content)) {
+                        switch (BaseX.fromBase64(base64Content)) {
+                            case (#ok(bytes)) {
+                                switch (fromBytes(bytes.vals(), #der)) {
+                                    case (#ok(pubKey)) #ok(pubKey);
+                                    case (#err(e)) #err("Invalid public key bytes: " # e);
+                                };
+                            };
+                            case (#err(e)) #err("Failed to decode PEM base64: " # e);
+                        };
+                    };
+                    case (#err(e)) #err(e);
+                };
+            };
+        };
+    };
+
+    // Helper function to extract content from PEM format
+    private func extractPEMContent(pem : Text) : Result.Result<Text, Text> {
+        let ?headerTrimmedPem = Text.stripStart(pem, #text("-----BEGIN PUBLIC KEY-----")) else return #err("Invalid PEM format: missing header");
+        let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text("-----END PUBLIC KEY-----")) else return #err("Invalid PEM format: missing footer");
+        #ok(Text.join("", Text.split(trimmedPem, #char('\n'))));
     };
 
 };

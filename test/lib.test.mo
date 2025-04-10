@@ -13,6 +13,7 @@ import Debug "mo:base/Debug";
 import { test; suite } "mo:test";
 import Sha256 "mo:sha2/Sha256";
 import Array "mo:new-base/Array";
+import Result "mo:new-base/Result";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
@@ -539,11 +540,13 @@ for (curveKind in curveKinds.vals()) {
             );
           };
 
-          let check = func(actualPubKey : ?M.PublicKey, expectedPubKey : M.PublicKey) {
+          let check = func(actualPubKey : Result.Result<M.PublicKey, Text>, expectedPubKey : M.PublicKey) {
             switch (actualPubKey) {
-              case (null) { assert (false) };
-              case (?actualPubKey) {
-                assert (actualPubKey.equal(expectedPubKey));
+              case (#err(e)) Debug.trap("Unable to parse public key bytes: " # e);
+              case (#ok(actualPubKey)) {
+                if (not actualPubKey.equal(expectedPubKey)) {
+                  Debug.trap("Public key mismatch");
+                };
               };
             };
           };
@@ -979,10 +982,14 @@ for (curveKind in curveKinds.vals()) {
           "\30\59\30\13\06\07\2a\86\48\ce\3d\02\01\06\08\2a\86\48\ce\3d\03\01\07\03\42\00\04\12\3b\8c\f8\c0\97\44\89\7e\dc\31\52\2d\7c\ad\e9\49\37\b8\43\01\ae\b2\a8\1c\50\58\ed\cf\88\f1\32\0a\21\19\62\72\4f\a3\c4\c1\e4\16\af\1c\3f\9d\78\46\77\53\3d\b9\68\dd\0d\a4\76\28\d0\0f\0b\24\a2",
         );
       };
-      let ?publicKey = PublicKey.fromBytes(key.vals(), #der) else Debug.trap("Failed to parse public key");
-      assert (publicKey.curve.kind == curveKind);
-      if (publicKey.x != x or publicKey.y != y) {
-        Debug.trap("Public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (publicKey.x) # "\ny=" # debug_show (publicKey.y));
+      switch (PublicKey.fromBytes(key.vals(), #der)) {
+        case (#err(e)) Debug.trap("Failed to parse public key: " # debug_show (e));
+        case (#ok(publicKey)) {
+          assert (publicKey.curve.kind == curveKind);
+          if (publicKey.x != x or publicKey.y != y) {
+            Debug.trap("Public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (publicKey.x) # "\ny=" # debug_show (publicKey.y));
+          };
+        };
       };
     },
   );
@@ -995,6 +1002,7 @@ for (curveKind in curveKinds.vals()) {
         y : Nat;
         outputs : [{
           format : PublicKey.OutputTextFormat;
+          inputFormat : ?PublicKey.InputTextFormat;
           expectedText : Text;
         }];
       };
@@ -1011,7 +1019,13 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #der;
               });
-              expectedText = "0x3055301006072a8648ce3d020106052b8104000a03000454f648b4aa867598eca33659855a2e99bf3522b938a3dd3cd308e45c42da15370145e83b45b726ad23f5baf69f68460e27d2e766cc7ed2fd6eca90ae33d8115e";
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
+              expectedText = "0x3056301006072a8648ce3d020106052b8104000a0342000454f648b4aa867598eca33659855a2e99bf3522b938a3dd3cd308e45c42da15370145e83b45b726ad23f5baf69f68460e27d2e766cc7ed2fd6eca90ae33d8115e";
             },
             {
               format = #hex({
@@ -1020,6 +1034,12 @@ for (curveKind in curveKinds.vals()) {
                   prefix = #none;
                 };
                 byteEncoding = #compressed;
+              });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #none;
+                };
+                byteEncoding = #raw({ curve });
               });
               expectedText = "0254F648B4AA867598ECA33659855A2E99BF3522B938A3DD3CD308E45C42DA1537";
             },
@@ -1031,6 +1051,12 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #uncompressed;
               });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #raw({ curve });
+              });
               expectedText = "\\x04\\x54\\xF6\\x48\\xB4\\xAA\\x86\\x75\\x98\\xEC\\xA3\\x36\\x59\\x85\\x5A\\x2E\\x99\\xBF\\x35\\x22\\xB9\\x38\\xA3\\xDD\\x3C\\xD3\\x08\\xE4\\x5C\\x42\\xDA\\x15\\x37\\x01\\x45\\xE8\\x3B\\x45\\xB7\\x26\\xAD\\x23\\xF5\\xBA\\xF6\\x9F\\x68\\x46\\x0E\\x27\\xD2\\xE7\\x66\\xCC\\x7E\\xD2\\xFD\\x6E\\xCA\\x90\\xAE\\x33\\xD8\\x11\\x5E";
             },
             {
@@ -1038,28 +1064,39 @@ for (curveKind in curveKinds.vals()) {
                 isUriSafe = false;
                 byteEncoding = #der;
               });
-              expectedText = "MFUwEAYHKoZIzj0CAQYFK4EEAAoDAARU9ki0qoZ1mOyjNlmFWi6ZvzUiuTij3TzTCORcQtoVNwFF6DtFtyatI/W69p9oRg4n0udmzH7S/W7KkK4z2BFe";
+              inputFormat = ?#base64({
+                byteEncoding = #der;
+              });
+              expectedText = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o9080wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==";
             },
             {
               format = #base64({
                 isUriSafe = true;
                 byteEncoding = #der;
               });
-              expectedText = "MFUwEAYHKoZIzj0CAQYFK4EEAAoDAARU9ki0qoZ1mOyjNlmFWi6ZvzUiuTij3TzTCORcQtoVNwFF6DtFtyatI_W69p9oRg4n0udmzH7S_W7KkK4z2BFe";
+              inputFormat = ?#base64({
+                byteEncoding = #der;
+              });
+              expectedText = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o9080wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx-0v1uypCuM9gRXg";
             },
             {
               format = #pem;
-              expectedText = "-----BEGIN PUBLIC KEY-----\nMFUwEAYHKoZIzj0CAQYFK4EEAAoDAARU9ki0qoZ1mOyjNlmFWi6ZvzUiuTij3TzT\nCORcQtoVNwFF6DtFtyatI/W69p9oRg4n0udmzH7S/W7KkK4z2BFe\n-----END PUBLIC KEY-----";
+              inputFormat = ?#pem;
+              expectedText = "-----BEGIN PUBLIC KEY-----\nMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o908\n0wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==\n-----END PUBLIC KEY-----";
             },
             {
               format = #base64({
                 isUriSafe = true;
                 byteEncoding = #uncompressed;
               });
+              inputFormat = ?#base64({
+                byteEncoding = #raw({ curve });
+              });
               expectedText = "BFT2SLSqhnWY7KM2WYVaLpm_NSK5OKPdPNMI5FxC2hU3AUXoO0W3Jq0j9br2n2hGDifS52bMftL9bsqQrjPYEV4";
             },
             {
               format = #jwk;
+              inputFormat = null;
               expectedText = "{\"kty\":\"EC\",\"crv\":\"secp256k1\",\"x\":\"VPZItKqGdZjsozZZhVoumb81Irk4o9080wjkXELaFTc\",\"y\":\"AUXoO0W3Jq0j9br2n2hGDifS52bMftL9bsqQrjPYEV4\"}";
             },
           ];
@@ -1076,7 +1113,13 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #der;
               });
-              expectedText = "0x3058301306072a8648ce3d020106082a8648ce3d030107030004123b8cf8c09744897edc31522d7cade94937b84301aeb2a81c5058edcf88f1320a211962724fa3c4c1e416af1c3f9d784677533db968dd0da47628d00f0b24a2";
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
+              expectedText = "0x3059301306072a8648ce3d020106082a8648ce3d03010703420004123b8cf8c09744897edc31522d7cade94937b84301aeb2a81c5058edcf88f1320a211962724fa3c4c1e416af1c3f9d784677533db968dd0da47628d00f0b24a2";
             },
             {
               format = #hex({
@@ -1085,6 +1128,12 @@ for (curveKind in curveKinds.vals()) {
                   prefix = #none;
                 };
                 byteEncoding = #compressed;
+              });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #none;
+                };
+                byteEncoding = #raw({ curve });
               });
               expectedText = "02123B8CF8C09744897EDC31522D7CADE94937B84301AEB2A81C5058EDCF88F132";
             },
@@ -1096,6 +1145,12 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #uncompressed;
               });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #raw({ curve });
+              });
               expectedText = "\\x04\\x12\\x3B\\x8C\\xF8\\xC0\\x97\\x44\\x89\\x7E\\xDC\\x31\\x52\\x2D\\x7C\\xAD\\xE9\\x49\\x37\\xB8\\x43\\x01\\xAE\\xB2\\xA8\\x1C\\x50\\x58\\xED\\xCF\\x88\\xF1\\x32\\x0A\\x21\\x19\\x62\\x72\\x4F\\xA3\\xC4\\xC1\\xE4\\x16\\xAF\\x1C\\x3F\\x9D\\x78\\x46\\x77\\x53\\x3D\\xB9\\x68\\xDD\\x0D\\xA4\\x76\\x28\\xD0\\x0F\\x0B\\x24\\xA2";
             },
             {
@@ -1103,28 +1158,39 @@ for (curveKind in curveKinds.vals()) {
                 isUriSafe = false;
                 byteEncoding = #der;
               });
-              expectedText = "MFgwEwYHKoZIzj0CAQYIKoZIzj0DAQcDAAQSO4z4wJdEiX7cMVItfK3pSTe4QwGusqgcUFjtz4jxMgohGWJyT6PEweQWrxw/nXhGd1M9uWjdDaR2KNAPCySi";
+              inputFormat = ?#base64({
+                byteEncoding = #der;
+              });
+              expectedText = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM+MCXRIl+3DFSLXyt6Uk3uEMBrrKoHFBY7c+I8TIKIRlick+jxMHkFq8cP514RndTPblo3Q2kdijQDwskog==";
             },
             {
               format = #base64({
                 isUriSafe = true;
                 byteEncoding = #der;
               });
-              expectedText = "MFgwEwYHKoZIzj0CAQYIKoZIzj0DAQcDAAQSO4z4wJdEiX7cMVItfK3pSTe4QwGusqgcUFjtz4jxMgohGWJyT6PEweQWrxw_nXhGd1M9uWjdDaR2KNAPCySi";
+              inputFormat = ?#base64({
+                byteEncoding = #der;
+              });
+              expectedText = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM-MCXRIl-3DFSLXyt6Uk3uEMBrrKoHFBY7c-I8TIKIRlick-jxMHkFq8cP514RndTPblo3Q2kdijQDwskog";
             },
             {
               format = #pem;
-              expectedText = "-----BEGIN PUBLIC KEY-----\nMFgwEwYHKoZIzj0CAQYIKoZIzj0DAQcDAAQSO4z4wJdEiX7cMVItfK3pSTe4QwGu\nsqgcUFjtz4jxMgohGWJyT6PEweQWrxw/nXhGd1M9uWjdDaR2KNAPCySi\n-----END PUBLIC KEY-----";
+              inputFormat = ?#pem;
+              expectedText = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM+MCXRIl+3DFSLXyt6Uk3uEMB\nrrKoHFBY7c+I8TIKIRlick+jxMHkFq8cP514RndTPblo3Q2kdijQDwskog==\n-----END PUBLIC KEY-----";
             },
             {
               format = #base64({
                 isUriSafe = true;
                 byteEncoding = #uncompressed;
               });
+              inputFormat = ?#base64({
+                byteEncoding = #raw({ curve });
+              });
               expectedText = "BBI7jPjAl0SJftwxUi18relJN7hDAa6yqBxQWO3PiPEyCiEZYnJPo8TB5BavHD-deEZ3Uz25aN0NpHYo0A8LJKI";
             },
             {
               format = #jwk;
+              inputFormat = null;
               expectedText = "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"EjuM-MCXRIl-3DFSLXyt6Uk3uEMBrrKoHFBY7c-I8TI\",\"y\":\"CiEZYnJPo8TB5BavHD-deEZ3Uz25aN0NpHYo0A8LJKI\"}";
             },
           ];
@@ -1132,14 +1198,27 @@ for (curveKind in curveKinds.vals()) {
       };
       for ({ x; y; outputs } in testCases.vals()) {
         let key = PublicKey.PublicKey(x, y, curve);
-        for ({ format; expectedText } in outputs.vals()) {
+        for ({ format; inputFormat; expectedText } in outputs.vals()) {
           let actualText = key.toText(format);
           if (actualText != expectedText) {
             Debug.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
           };
+          switch (inputFormat) {
+            case (null) ();
+            case (?inputFormat) {
+              switch (PublicKey.fromText(actualText, inputFormat)) {
+                case (#err(e)) Debug.trap("Failed to parse public key from text: " # debug_show (e) # "\nText: " # actualText);
+                case (#ok(parsedKey)) {
+                  assert (parsedKey.curve.kind == curve.kind);
+                  if (parsedKey.x != x or parsedKey.y != y) {
+                    Debug.trap("Parsed public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (parsedKey.x) # "\ny=" # debug_show (parsedKey.y));
+                  };
+                };
+              };
+            };
+          };
         };
       };
-
     },
   );
 
@@ -1165,7 +1244,7 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #der;
               });
-              expectedText = "0x308183020100301006072a8648ce3d020106052b8104000a046c306a0201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da205000300040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
+              expectedText = "0x308184020100301006072a8648ce3d020106052b8104000a046d306b0201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da20500034200040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
             },
             {
               format = #hex({
@@ -1192,18 +1271,18 @@ for (curveKind in curveKinds.vals()) {
                 isUriSafe = false;
                 byteEncoding = #der;
               });
-              expectedText = "MIGDAgEAMBAGByqGSM49AgEGBSuBBAAKBGwwagIBAQQgsapigrFOX/v20S94NhL4BOaiDRqXNP+7bJkjxnDujaIFAAMABAoJ/xQtlLw/VsXIG3XqOwawgsUmP7tb2Ixhn8Y5Pdo9pT4OkwiSzbd5nuqP1Fuf/zd9g49BBkVCia6KCAsRH40=";
+              expectedText = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX/v20S94NhL4BOaiDRqXNP+7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj+7W9iMYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggLER+N";
             },
             {
               format = #base64({
                 isUriSafe = true;
                 byteEncoding = #der;
               });
-              expectedText = "MIGDAgEAMBAGByqGSM49AgEGBSuBBAAKBGwwagIBAQQgsapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaIFAAMABAoJ_xQtlLw_VsXIG3XqOwawgsUmP7tb2Ixhn8Y5Pdo9pT4OkwiSzbd5nuqP1Fuf_zd9g49BBkVCia6KCAsRH40";
+              expectedText = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj-7W9iMYZ_GOT3aPaU-DpMIks23eZ7qj9Rbn_83fYOPQQZFQomuiggLER-N";
             },
             {
               format = #pem;
-              expectedText = "-----BEGIN PRIVATE KEY-----\nMIGDAgEAMBAGByqGSM49AgEGBSuBBAAKBGwwagIBAQQgsapigrFOX/v20S94NhL4\nBOaiDRqXNP+7bJkjxnDujaIFAAMABAoJ/xQtlLw/VsXIG3XqOwawgsUmP7tb2Ixh\nn8Y5Pdo9pT4OkwiSzbd5nuqP1Fuf/zd9g49BBkVCia6KCAsRH40=\n-----END PRIVATE KEY-----";
+              expectedText = "-----BEGIN PRIVATE KEY-----\nMIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX/v20S94NhL4\nBOaiDRqXNP+7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj+7W9iM\nYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggLER+N\n-----END PRIVATE KEY-----";
             },
             {
               format = #base64({
