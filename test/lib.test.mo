@@ -988,9 +988,244 @@ for (curveKind in curveKinds.vals()) {
   );
 
   test(
-    "publicKeyToTextTest",
+    "publicKeyToText",
     func() {
-      assert false;
+      type TestCase = {
+        x : Nat;
+        y : Nat;
+        outputs : [{
+          format : PublicKey.OutputTextFormat;
+          expectedText : Text;
+        }];
+      };
+      let testCases : [TestCase] = switch (curveKind) {
+        case (#secp256k1) [{
+          x = 38_429_425_455_415_631_134_142_539_000_605_002_670_886_210_329_907_085_845_074_048_940_350_736_307_511;
+          y = 575_828_099_184_175_788_894_911_350_722_390_938_371_747_048_717_700_577_109_830_429_869_990_220_126;
+          outputs = [
+            {
+              format = #hex({
+                format = {
+                  isUpper = false;
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
+              expectedText = "0x3055301006072a8648ce3d020106052b8104000a03000454f648b4aa867598eca33659855a2e99bf3522b938a3dd3cd308e45c42da15370145e83b45b726ad23f5baf69f68460e27d2e766cc7ed2fd6eca90ae33d8115e";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #none;
+                };
+                byteEncoding = #compressed;
+              });
+              expectedText = "0254F648B4AA867598ECA33659855A2E99BF3522B938A3DD3CD308E45C42DA1537";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #uncompressed;
+              });
+              expectedText = "\\x04\\x54\\xF6\\x48\\xB4\\xAA\\x86\\x75\\x98\\xEC\\xA3\\x36\\x59\\x85\\x5A\\x2E\\x99\\xBF\\x35\\x22\\xB9\\x38\\xA3\\xDD\\x3C\\xD3\\x08\\xE4\\x5C\\x42\\xDA\\x15\\x37\\x01\\x45\\xE8\\x3B\\x45\\xB7\\x26\\xAD\\x23\\xF5\\xBA\\xF6\\x9F\\x68\\x46\\x0E\\x27\\xD2\\xE7\\x66\\xCC\\x7E\\xD2\\xFD\\x6E\\xCA\\x90\\xAE\\x33\\xD8\\x11\\x5E";
+            },
+            {
+              format = #base64({
+                isUriSafe = false;
+                byteEncoding = #der;
+              });
+              expectedText = "MFUwEAYHKoZIzj0CAQYFK4EEAAoDAARU9ki0qoZ1mOyjNlmFWi6ZvzUiuTij3TzTCORcQtoVNwFF6DtFtyatI/W69p9oRg4n0udmzH7S/W7KkK4z2BFe";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #der;
+              });
+              expectedText = "MFUwEAYHKoZIzj0CAQYFK4EEAAoDAARU9ki0qoZ1mOyjNlmFWi6ZvzUiuTij3TzTCORcQtoVNwFF6DtFtyatI_W69p9oRg4n0udmzH7S_W7KkK4z2BFe";
+            },
+            {
+              format = #pem;
+              expectedText = "-----BEGIN PUBLIC KEY-----\nMFUwEAYHKoZIzj0CAQYFK4EEAAoDAARU9ki0qoZ1mOyjNlmFWi6ZvzUiuTij3TzT\nCORcQtoVNwFF6DtFtyatI/W69p9oRg4n0udmzH7S/W7KkK4z2BFe\n-----END PUBLIC KEY-----";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #uncompressed;
+              });
+              expectedText = "BFT2SLSqhnWY7KM2WYVaLpm_NSK5OKPdPNMI5FxC2hU3AUXoO0W3Jq0j9br2n2hGDifS52bMftL9bsqQrjPYEV4";
+            },
+            {
+              format = #jwk;
+              expectedText = "{\"kty\":\"EC\",\"crv\":\"secp256k1\",\"x\":\"VPZItKqGdZjsozZZhVoumb81Irk4o9080wjkXELaFTc\",\"y\":\"AUXoO0W3Jq0j9br2n2hGDifS52bMftL9bsqQrjPYEV4\"}";
+            },
+          ];
+        }];
+        case (#prime256v1) [{
+          x = 8_246_848_202_158_231_730_716_563_389_865_169_855_763_682_067_620_766_047_489_138_422_753_650_078_002;
+          y = 4_581_609_636_742_156_842_656_836_398_542_464_111_512_942_411_741_276_644_977_917_616_723_361_211_554;
+          outputs = [
+            {
+              format = #hex({
+                format = {
+                  isUpper = false;
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
+              expectedText = "0x3058301306072a8648ce3d020106082a8648ce3d030107030004123b8cf8c09744897edc31522d7cade94937b84301aeb2a81c5058edcf88f1320a211962724fa3c4c1e416af1c3f9d784677533db968dd0da47628d00f0b24a2";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #none;
+                };
+                byteEncoding = #compressed;
+              });
+              expectedText = "02123B8CF8C09744897EDC31522D7CADE94937B84301AEB2A81C5058EDCF88F132";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #uncompressed;
+              });
+              expectedText = "\\x04\\x12\\x3B\\x8C\\xF8\\xC0\\x97\\x44\\x89\\x7E\\xDC\\x31\\x52\\x2D\\x7C\\xAD\\xE9\\x49\\x37\\xB8\\x43\\x01\\xAE\\xB2\\xA8\\x1C\\x50\\x58\\xED\\xCF\\x88\\xF1\\x32\\x0A\\x21\\x19\\x62\\x72\\x4F\\xA3\\xC4\\xC1\\xE4\\x16\\xAF\\x1C\\x3F\\x9D\\x78\\x46\\x77\\x53\\x3D\\xB9\\x68\\xDD\\x0D\\xA4\\x76\\x28\\xD0\\x0F\\x0B\\x24\\xA2";
+            },
+            {
+              format = #base64({
+                isUriSafe = false;
+                byteEncoding = #der;
+              });
+              expectedText = "MFgwEwYHKoZIzj0CAQYIKoZIzj0DAQcDAAQSO4z4wJdEiX7cMVItfK3pSTe4QwGusqgcUFjtz4jxMgohGWJyT6PEweQWrxw/nXhGd1M9uWjdDaR2KNAPCySi";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #der;
+              });
+              expectedText = "MFgwEwYHKoZIzj0CAQYIKoZIzj0DAQcDAAQSO4z4wJdEiX7cMVItfK3pSTe4QwGusqgcUFjtz4jxMgohGWJyT6PEweQWrxw_nXhGd1M9uWjdDaR2KNAPCySi";
+            },
+            {
+              format = #pem;
+              expectedText = "-----BEGIN PUBLIC KEY-----\nMFgwEwYHKoZIzj0CAQYIKoZIzj0DAQcDAAQSO4z4wJdEiX7cMVItfK3pSTe4QwGu\nsqgcUFjtz4jxMgohGWJyT6PEweQWrxw/nXhGd1M9uWjdDaR2KNAPCySi\n-----END PUBLIC KEY-----";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #uncompressed;
+              });
+              expectedText = "BBI7jPjAl0SJftwxUi18relJN7hDAa6yqBxQWO3PiPEyCiEZYnJPo8TB5BavHD-deEZ3Uz25aN0NpHYo0A8LJKI";
+            },
+            {
+              format = #jwk;
+              expectedText = "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"EjuM-MCXRIl-3DFSLXyt6Uk3uEMBrrKoHFBY7c-I8TI\",\"y\":\"CiEZYnJPo8TB5BavHD-deEZ3Uz25aN0NpHYo0A8LJKI\"}";
+            },
+          ];
+        }];
+      };
+      for ({ x; y; outputs } in testCases.vals()) {
+        let key = PublicKey.PublicKey(x, y, curve);
+        for ({ format; expectedText } in outputs.vals()) {
+          let actualText = key.toText(format);
+          if (actualText != expectedText) {
+            Debug.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+          };
+        };
+      };
+
+    },
+  );
+
+  test(
+    "privateKeyToText",
+    func() {
+      type TestCase = {
+        d : Nat;
+        outputs : [{
+          format : PrivateKey.OutputTextFormat;
+          expectedText : Text;
+        }];
+      };
+      let testCases : [TestCase] = switch (curveKind) {
+        case (#secp256k1) [{
+          d = 0xb1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2;
+          outputs = [
+            {
+              format = #hex({
+                format = {
+                  isUpper = false;
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
+              expectedText = "0x308183020100301006072a8648ce3d020106052b8104000a046c306a0201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da205000300040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #none;
+                };
+                byteEncoding = #raw;
+              });
+              expectedText = "B1AA6282B14E5FFBF6D12F783612F804E6A20D1A9734FFBB6C9923C670EE8DA2";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #raw;
+              });
+              expectedText = "\\xB1\\xAA\\x62\\x82\\xB1\\x4E\\x5F\\xFB\\xF6\\xD1\\x2F\\x78\\x36\\x12\\xF8\\x04\\xE6\\xA2\\x0D\\x1A\\x97\\x34\\xFF\\xBB\\x6C\\x99\\x23\\xC6\\x70\\xEE\\x8D\\xA2";
+            },
+            {
+              format = #base64({
+                isUriSafe = false;
+                byteEncoding = #der;
+              });
+              expectedText = "MIGDAgEAMBAGByqGSM49AgEGBSuBBAAKBGwwagIBAQQgsapigrFOX/v20S94NhL4BOaiDRqXNP+7bJkjxnDujaIFAAMABAoJ/xQtlLw/VsXIG3XqOwawgsUmP7tb2Ixhn8Y5Pdo9pT4OkwiSzbd5nuqP1Fuf/zd9g49BBkVCia6KCAsRH40=";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #der;
+              });
+              expectedText = "MIGDAgEAMBAGByqGSM49AgEGBSuBBAAKBGwwagIBAQQgsapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaIFAAMABAoJ_xQtlLw_VsXIG3XqOwawgsUmP7tb2Ixhn8Y5Pdo9pT4OkwiSzbd5nuqP1Fuf_zd9g49BBkVCia6KCAsRH40";
+            },
+            {
+              format = #pem;
+              expectedText = "-----BEGIN PRIVATE KEY-----\nMIGDAgEAMBAGByqGSM49AgEGBSuBBAAKBGwwagIBAQQgsapigrFOX/v20S94NhL4\nBOaiDRqXNP+7bJkjxnDujaIFAAMABAoJ/xQtlLw/VsXIG3XqOwawgsUmP7tb2Ixh\nn8Y5Pdo9pT4OkwiSzbd5nuqP1Fuf/zd9g49BBkVCia6KCAsRH40=\n-----END PRIVATE KEY-----";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #raw;
+              });
+              expectedText = "sapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaI";
+            },
+          ];
+        }];
+        case (#prime256v1) []; // Doesn't differ from secp256k1
+      };
+      for ({ d; outputs } in testCases.vals()) {
+        let key = PrivateKey.PrivateKey(d, curve);
+        for ({ format; expectedText } in outputs.vals()) {
+          let actualText = key.toText(format);
+          if (actualText != expectedText) {
+            Debug.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+          };
+        };
+      };
+
     },
   );
 };
