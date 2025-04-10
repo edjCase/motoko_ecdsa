@@ -22,7 +22,7 @@ module {
 
   public func publicKeyFromBytes(
     bytes : Iter.Iter<Nat8>,
-    encoding : PublicKeyModule.KeyEncoding,
+    encoding : PublicKeyModule.InputKeyEncoding,
   ) : ?PublicKey = PublicKeyModule.fromBytes(bytes, encoding);
 
   public type PrivateKey = PrivateKeyModule.PrivateKey;
@@ -33,7 +33,7 @@ module {
 
   public func privateKeyFromBytes(
     bytes : Iter.Iter<Nat8>,
-    encoding : PrivateKeyModule.KeyEncoding,
+    encoding : PrivateKeyModule.InputKeyEncoding,
   ) : ?PrivateKey = PrivateKeyModule.fromBytes(bytes, encoding);
 
   public func generatePrivateKey(

@@ -1,18 +1,43 @@
 import Curve "./Curve";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
+import Prelude "mo:base/Prelude";
 import Sha256 "mo:sha2/Sha256";
 import Signature "./Signature";
 import Util "./Util";
 import ASN1 "mo:asn1";
 import IterTools "mo:itertools/Iter";
+import PeekableIter "mo:itertools/PeekableIter";
+import BaseX "mo:base-x-encoder";
+import Nat "mo:new-base/Nat";
+import Nat8 "mo:new-base/Nat8";
+import Text "mo:new-base/Text";
 
 module {
 
-    public type KeyEncoding = {
+    public type InputKeyEncoding = {
         #der;
         #raw : {
             curve : Curve.Curve;
+        };
+    };
+
+    public type OutputKeyEncoding = {
+        #der;
+        #compressed;
+        #uncompressed;
+    };
+
+    public type OutputTextFormat = {
+        #pem;
+        #jwk;
+        #base64 : {
+            byteEncoding : OutputKeyEncoding;
+            isUriSafe : Bool;
+        };
+        #hex : {
+            byteEncoding : OutputKeyEncoding;
+            format : BaseX.HexOutputFormat;
         };
     };
 
@@ -57,8 +82,99 @@ module {
             };
         };
 
+        public func toText(format : OutputTextFormat) : Text {
+            switch (format) {
+                case (#hex({ byteEncoding; format })) {
+                    let bytes = toBytes(byteEncoding);
+                    BaseX.toHex(bytes.vals(), format);
+                };
+                case (#base64({ byteEncoding; isUriSafe })) {
+                    let bytes = toBytes(byteEncoding);
+                    BaseX.toBase64(bytes.vals(), isUriSafe);
+                };
+                case (#pem) {
+                    let derBytes = toBytes(#der);
+                    let base64 = BaseX.toBase64(derBytes.vals(), false);
+
+                    let iter = PeekableIter.fromIter(base64.chars());
+                    var formatted = Text.fromIter(IterTools.take(iter, 64));
+                    while (iter.peek() != null) {
+                        formatted #= "\n" # Text.fromIter(IterTools.take(iter, 64));
+                    };
+
+                    "-----BEGIN PUBLIC KEY-----\n"
+                    # formatted
+                    # "\n-----END PUBLIC KEY-----";
+                };
+
+                case (#jwk) {
+                    // Get uncompressed point format (0x04 + X + Y coordinates)
+                    let bytes = toBytes(#uncompressed);
+
+                    // Extract X and Y coordinates (32 bytes each after 0x04 prefix)
+                    let xCoord = Array.tabulate<Nat8>(32, func(i) { bytes[i + 1] });
+                    let yCoord = Array.tabulate<Nat8>(32, func(i) { bytes[i + 33] });
+
+                    // Base64URL encode coordinates
+                    let xB64 = BaseX.toBase64(xCoord.vals(), true);
+                    let yB64 = BaseX.toBase64(yCoord.vals(), true);
+
+                    // Get curve name
+                    let curveName = switch (curve.kind) {
+                        case (#secp256k1) "secp256k1";
+                        case (#prime256v1) "P-256";
+                    };
+
+                    // Format as JWK JSON
+                    "{\"kty\":\"EC\",\"crv\":\"" # curveName # "\",\"x\":\"" # xB64 # "\",\"y\":\"" # yB64 # "\"}";
+                };
+            };
+        };
+
+        public func toBytes(encoding : OutputKeyEncoding) : [Nat8] {
+            switch (encoding) {
+                case (#der) {
+                    let uncompressed = toBytesUncompressed();
+                    let curveOid = switch (curve.kind) {
+                        case (#secp256k1) [1, 3, 132, 0, 10];
+                        case (#prime256v1) [1, 2, 840, 10045, 3, 1, 7];
+                    };
+                    let asn1 : ASN1.ASN1Value = #sequence([
+                        #sequence([
+                            #objectIdentifier([1, 2, 840, 10_045, 2, 1]),
+                            #objectIdentifier(curveOid),
+                        ]),
+                        #bitString({ data = uncompressed; unusedBits = 0 }),
+                    ]);
+                    let #ok(bytes) = ASN1.encodeDER(asn1) else Prelude.unreachable();
+                    bytes;
+                };
+                case (#uncompressed) toBytesUncompressed();
+                case (#compressed) toBytesCompressed();
+            };
+        };
+
+        /// return 0x02 + bigEndian(x) if y is even
+        /// return 0x03 + bigEndian(x) if y is odd
+        private func toBytesCompressed() : [Nat8] {
+            let prefix : Nat8 = if ((curve.Fp.toNat(#fp(y)) % 2) == 0) 0x02 else 0x03;
+            let n = 32;
+            let x_bytes = Util.toBigEndianPad(n, curve.Fp.toNat(#fp(x)));
+
+            Array.tabulate<Nat8>(
+                1 + n,
+                func(i : Nat) : Nat8 {
+                    if (i == 0) {
+                        prefix;
+                    } else {
+                        x_bytes[i - 1];
+                    };
+                },
+            );
+        };
+
         /// return 0x04 + bigEndian(x) + bigEndian(y)
-        public func toBytesUncompressed() : [Nat8] {
+        private func toBytesUncompressed() : [Nat8] {
             let prefix = 0x04 : Nat8;
             let n = 32;
             let x_bytes = Util.toBigEndianPad(n, curve.Fp.toNat(#fp(x)));
@@ -76,28 +192,9 @@ module {
                 },
             );
         };
-
-        /// return 0x02 + bigEndian(x) if y is even
-        /// return 0x03 + bigEndian(x) if y is odd
-        public func toBytesCompressed() : [Nat8] {
-            let prefix : Nat8 = if ((curve.Fp.toNat(#fp(y)) % 2) == 0) 0x02 else 0x03;
-            let n = 32;
-            let x_bytes = Util.toBigEndianPad(n, curve.Fp.toNat(#fp(x)));
-
-            Array.tabulate<Nat8>(
-                1 + n,
-                func(i : Nat) : Nat8 {
-                    if (i == 0) {
-                        prefix;
-                    } else {
-                        x_bytes[i - 1];
-                    };
-                },
-            );
-        };
     };
 
-    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : KeyEncoding) : ?PublicKey {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputKeyEncoding) : ?PublicKey {
         switch (encoding) {
             case (#raw({ curve })) {
                 let even = switch (bytes.next()) {

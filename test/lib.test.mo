@@ -548,16 +548,16 @@ for (curveKind in curveKinds.vals()) {
             };
           };
           do {
-            let uncompressedBytes = publicKey.toBytesUncompressed();
+            let uncompressedBytes = publicKey.toBytes(#uncompressed);
             assert (uncompressedBytes == expectedBytes);
             check(PublicKey.fromBytes(uncompressedBytes.vals(), #raw({ curve })), publicKey);
           };
           do {
-            let compressedBytes = publicKey.toBytesCompressed();
+            let compressedBytes = publicKey.toBytes(#compressed);
             check(PublicKey.fromBytes(compressedBytes.vals(), #raw({ curve })), publicKey);
             let #fp(yNeg) = C.Fp.neg(#fp(publicKey.y));
             let publicKeyNeg = PublicKey.PublicKey(publicKey.x, yNeg, curve);
-            let compressedBytesNeg = publicKeyNeg.toBytesCompressed();
+            let compressedBytesNeg = publicKeyNeg.toBytes(#compressed);
             check(PublicKey.fromBytes(compressedBytesNeg.vals(), #raw({ curve })), publicKeyNeg);
           };
         },
@@ -984,6 +984,13 @@ for (curveKind in curveKinds.vals()) {
       if (publicKey.x != x or publicKey.y != y) {
         Debug.trap("Public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (publicKey.x) # "\ny=" # debug_show (publicKey.y));
       };
+    },
+  );
+
+  test(
+    "publicKeyToTextTest",
+    func() {
+      assert false;
     },
   );
 };
