@@ -1304,4 +1304,88 @@ for (curveKind in curveKinds.vals()) {
 
     },
   );
+
+  test(
+    "signatureToText",
+    func() {
+      type TestCase = {
+        r : Nat;
+        s : Nat;
+        outputs : [{
+          format : Signature.OutputTextFormat;
+          expectedText : Text;
+        }];
+      };
+      let testCases : [TestCase] = switch (curveKind) {
+        case (#secp256k1) [{
+          r = 0xa1b2c3d4e5f67890abcdef0123456789abcdef0123456789abcdef0123456789;
+          s = 0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba;
+          outputs = [
+            {
+              format = #hex({
+                format = {
+                  isUpper = false;
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
+              expectedText = "0x3046022100a1b2c3d4e5f67890abcdef0123456789abcdef0123456789abcdef01234567890221009876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #none;
+                };
+                byteEncoding = #raw;
+              });
+              expectedText = "A1B2C3D4E5F67890ABCDEF0123456789ABCDEF0123456789ABCDEF01234567899876543210FEDCBA9876543210FEDCBA9876543210FEDCBA9876543210FEDCBA";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = true;
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #raw;
+              });
+              expectedText = "\\xA1\\xB2\\xC3\\xD4\\xE5\\xF6\\x78\\x90\\xAB\\xCD\\xEF\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\x01\\x23\\x45\\x67\\x89\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA";
+            },
+            {
+              format = #base64({
+                isUriSafe = false;
+                byteEncoding = #der;
+              });
+              expectedText = "MEYCIQChssPU5fZ4kKvN7wEjRWeJq83vASNFZ4mrze8BI0VniQIhAJh2VDIQ/ty6mHZUMhD+3LqYdlQyEP7cuph2VDIQ/ty6";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #der;
+              });
+              expectedText = "MEYCIQChssPU5fZ4kKvN7wEjRWeJq83vASNFZ4mrze8BI0VniQIhAJh2VDIQ_ty6mHZUMhD-3LqYdlQyEP7cuph2VDIQ_ty6";
+            },
+            {
+              format = #base64({
+                isUriSafe = true;
+                byteEncoding = #raw;
+              });
+              expectedText = "obLD1OX2eJCrze8BI0VniavN7wEjRWeJq83vASNFZ4mYdlQyEP7cuph2VDIQ_ty6mHZUMhD-3LqYdlQyEP7cug";
+            },
+          ];
+        }];
+        case (#prime256v1) []; // Doesn't differ from secp256k1
+      };
+
+      for ({ r; s; outputs } in testCases.vals()) {
+        let signature = Signature.Signature(r, s, curve);
+        for ({ format; expectedText } in outputs.vals()) {
+          let actualText = signature.toText(format);
+          if (actualText != expectedText) {
+            Debug.trap("Signature text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+          };
+        };
+      };
+    },
+  );
 };
