@@ -80,7 +80,7 @@ module {
             if (signature.r == 0) return false;
             if (signature.s == 0) return false;
             if (curve.Fr.toNat(#fr(signature.s)) >= curve.params.rHalf) return false;
-            let #fr(hash_z) = curve.getExponent(hashedMsg);
+            let ?#fr(hash_z) = curve.getExponent(hashedMsg) else return false;
             let w = curve.Fr.inv(#fr(signature.s));
             let u1 = curve.Fr.mul(#fr(hash_z), w);
             let u2 = curve.Fr.mul(#fr(signature.r), w);

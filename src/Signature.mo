@@ -5,6 +5,7 @@ import Util "Util";
 import ASN1 "mo:asn1";
 import Int "mo:new-base/Int";
 import Iter "mo:new-base/Iter";
+import Result "mo:new-base/Result";
 import IterTools "mo:itertools/Iter";
 
 module {
@@ -52,31 +53,31 @@ module {
         };
     };
 
-    public func fromBytes(bytes : Iter.Iter<Nat8>, curve : Curve.Curve, encoding : SignatureEncoding) : ?Signature {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, curve : Curve.Curve, encoding : SignatureEncoding) : Result.Result<Signature, Text> {
         switch (encoding) {
             case (#raw) {
                 // Extract r and s values
                 let rBytes = IterTools.take(bytes, 32);
                 let sBytes = IterTools.take(bytes, 32);
 
-                let ?r = Util.toNatAsBigEndian(rBytes) else return null;
-                let ?s = Util.toNatAsBigEndian(sBytes) else return null;
+                let ?r = Util.toNatAsBigEndian(rBytes) else return #err("Invalid signature: failed to decode r from bytes");
+                let ?s = Util.toNatAsBigEndian(sBytes) else return #err("Invalid signature: failed to decode s from bytes");
 
-                ?Signature(r, s, curve);
+                #ok(Signature(r, s, curve));
             };
             case (#der) {
                 switch (ASN1.decodeDER(bytes)) {
-                    case (#err(e)) return null;
+                    case (#err(e)) return #err("Invalid DER format: " # e);
                     case (#ok(#sequence(sequence))) {
-                        if (sequence.size() != 2) return null;
-                        let #integer(r) = sequence[0] else return null;
-                        if (r < 0) return null;
+                        if (sequence.size() != 2) return #err("Invalid DER format: expected 2 elements");
+                        let #integer(r) = sequence[0] else return #err("Invalid DER format: expected integer for r");
+                        if (r < 0) return #err("Invalid DER format: r is negative");
 
-                        let #integer(s) = sequence[1] else return null;
-                        if (s < 0) return null;
-                        return ?Signature(Int.abs(r), Int.abs(s), curve);
+                        let #integer(s) = sequence[1] else return #err("Invalid DER format: expected integer for s");
+                        if (s < 0) return #err("Invalid DER format: s is negative");
+                        return #ok(Signature(Int.abs(r), Int.abs(s), curve));
                     };
-                    case (#ok(_)) return null; // Invalid DER format
+                    case (#ok(_)) return #err("Invalid DER format: expected sequence");
                 };
             };
 

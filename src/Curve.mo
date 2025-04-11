@@ -95,9 +95,9 @@ module {
 
     public func getExponent(
       rand : Iter.Iter<Nat8>
-    ) : FrElt {
-      let ?nat = Util.toNatAsBigEndian(rand) else Debug.trap("Unable to convert rand to Nat");
-      Fr.fromNat(nat);
+    ) : ?FrElt {
+      let ?nat = Util.toNatAsBigEndian(rand) else return null;
+      ?Fr.fromNat(nat);
     };
 
     // return x^3 + ax + b

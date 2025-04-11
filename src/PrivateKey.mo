@@ -11,6 +11,7 @@ import IterTools "mo:itertools/Iter";
 import PeekableIter "mo:itertools/PeekableIter";
 import BaseX "mo:base-x-encoder";
 import Text "mo:new-base/Text";
+import Result "mo:new-base/Result";
 
 module {
 
@@ -59,7 +60,7 @@ module {
         public func sign(
             msg : Iter.Iter<Nat8>,
             rand : Iter.Iter<Nat8>,
-        ) : ?Signature.Signature {
+        ) : Result.Result<Signature.Signature, Text> {
             let hashedMsg = Sha256.fromIter(#sha256, msg);
             signHashed(hashedMsg.vals(), rand);
         };
@@ -67,18 +68,18 @@ module {
         public func signHashed(
             hashedMsg : Iter.Iter<Nat8>,
             rand : Iter.Iter<Nat8>,
-        ) : ?Signature.Signature {
-            let k = curve.getExponent(rand);
+        ) : Result.Result<Signature.Signature, Text> {
+            let ?k = curve.getExponent(rand) else return #err("Not enough entropy bytes");
             let x = switch (curve.fromJacobi(curve.mul_base(k))) {
-                case (#zero) return null; // k was 0, bad luck with rand
+                case (#zero) return #err("Unable to get x from k, point was zero");
                 case (#affine(x, _)) x;
             };
             let #fr(r) = curve.Fr.fromNat(curve.Fp.toNat(x));
-            if (r == 0) return null; // x was 0 mod r, bad luck with rand
-            let z = curve.getExponent(hashedMsg);
+            if (r == 0) return #err("Bad luck with x, r is 0");
+            let ?z = curve.getExponent(hashedMsg) else return #err("Hashed message did not have enough bytes");
             // s = (r * sec + z) / k
             let #fr(s) = curve.Fr.div(curve.Fr.add(curve.Fr.mul(#fr(r), #fr(d)), z), k);
-            ?Signature.Signature(r, s, curve);
+            #ok(Signature.Signature(r, s, curve));
         };
 
         public func toText(format : OutputTextFormat) : Text {
@@ -159,57 +160,58 @@ module {
     public func generate(
         entropy : Iter.Iter<Nat8>,
         curve : Curve.Curve,
-    ) : ?PrivateKey {
+    ) : Result.Result<PrivateKey, Text> {
         switch (curve.getExponent(entropy)) {
-            case (#fr(0)) null; // bad luck with entropy
-            case (#fr(s)) ?PrivateKey(s, curve);
+            case (null) return #err("Not enough entropy bytes");
+            case (?#fr(0)) return #err("Bad entropy, the value is 0");
+            case (?#fr(s)) #ok(PrivateKey(s, curve));
         };
     };
 
-    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputKeyEncoding) : ?PrivateKey {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputKeyEncoding) : Result.Result<PrivateKey, Text> {
         switch (encoding) {
             case (#raw({ curve })) {
 
-                let ?d = Util.toNatAsBigEndian(IterTools.take(bytes, 32)) else return null;
+                let ?d = Util.toNatAsBigEndian(IterTools.take(bytes, 32)) else return #err("Invalid private key: failed to decode d from bytes");
 
                 // Validate the key is in range for the curve
                 if (d == 0 or d >= curve.params.r) {
-                    return null;
+                    return #err("Invalid private key: d is out of range for the curve");
                 };
 
-                ?PrivateKey(d, curve);
+                #ok(PrivateKey(d, curve));
             };
             case (#der) {
                 switch (ASN1.decodeDER(bytes)) {
-                    case (#err(_)) return null;
+                    case (#err(e)) return #err("Invalid DER format: " # e);
                     case (#ok(#sequence(sequence))) {
-                        if (sequence.size() < 3) return null;
+                        if (sequence.size() < 3) return #err("Invalid DER format: expected at least 3 elements");
 
                         // First element is version (should be 1)
-                        let #integer(1) = sequence[0] else return null;
+                        let #integer(1) = sequence[0] else return #err("Invalid DER format: expected version 1");
 
                         // Second element is the algorithm identifier
-                        let #sequence(algorithmIdSequence) = sequence[1] else return null;
-                        if (algorithmIdSequence.size() != 2) return null;
-                        let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return null;
-                        let #null_ = algorithmIdSequence[1] else return null;
+                        let #sequence(algorithmIdSequence) = sequence[1] else return #err("Invalid DER format: expected algorithm identifier");
+                        if (algorithmIdSequence.size() != 2) return #err("Invalid DER format: expected algorithm identifier with 2 elements");
+                        let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return #err("Invalid DER format: expected algorithm OID");
+                        let #null_ = algorithmIdSequence[1] else return #err("Invalid DER format: expected null for algorithm identifier parameter");
                         let curve = if (algorithmOid == [1, 3, 132, 0, 10]) {
                             Curve.secp256k1();
                         } else if (algorithmOid == [1, 2, 840, 10045, 3, 1, 7]) {
                             Curve.prime256v1();
                         } else {
-                            return null; // Unsupported curve
+                            return #err("Invalid DER format: unsupported algorithm OID - " # debug_show (algorithmOid));
                         };
 
                         // Third element is the private key as OCTET STRING
-                        let #octetString(keyBytes) = sequence[2] else return null;
+                        let #octetString(keyBytes) = sequence[2] else return #err("Invalid DER format: expected private key as OCTET STRING");
 
                         // TODO private key attributes?
 
                         // Validate the key
                         fromBytes(keyBytes.vals(), #raw({ curve }));
                     };
-                    case (#ok(_)) return null; // Invalid DER format
+                    case (#ok(_)) return #err("Invalid DER format: expected sequence");
                 };
             };
         };

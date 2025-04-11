@@ -35,12 +35,12 @@ module {
   public func privateKeyFromBytes(
     bytes : Iter.Iter<Nat8>,
     encoding : PrivateKeyModule.InputKeyEncoding,
-  ) : ?PrivateKey = PrivateKeyModule.fromBytes(bytes, encoding);
+  ) : Result.Result<PrivateKey, Text> = PrivateKeyModule.fromBytes(bytes, encoding);
 
   public func generatePrivateKey(
     entropy : Iter.Iter<Nat8>,
     curve : CurveModule.Curve,
-  ) : ?PrivateKey = PrivateKeyModule.generate(entropy, curve);
+  ) : Result.Result<PrivateKey, Text> = PrivateKeyModule.generate(entropy, curve);
 
   public type Signature = SignatureModule.Signature;
   public func Signature(
@@ -53,5 +53,5 @@ module {
     bytes : Iter.Iter<Nat8>,
     curve : CurveModule.Curve,
     encoding : SignatureModule.SignatureEncoding,
-  ) : ?Signature = SignatureModule.fromBytes(bytes, curve, encoding);
+  ) : Result.Result<Signature, Text> = SignatureModule.fromBytes(bytes, curve, encoding);
 };
