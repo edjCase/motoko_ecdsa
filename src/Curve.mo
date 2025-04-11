@@ -7,6 +7,7 @@ import Buffer "mo:base/Buffer";
 import Int "mo:base/Int";
 import Iter "mo:base/Iter";
 import Util "./Util";
+import IterTools "mo:itertools/Iter";
 
 module {
   public type FpElt = { #fp : Nat };
@@ -96,7 +97,7 @@ module {
     public func getExponent(
       rand : Iter.Iter<Nat8>
     ) : ?FrElt {
-      let ?nat = Util.toNatAsBigEndian(rand) else return null;
+      let ?nat = Util.toNatAsBigEndian(IterTools.take(rand, 32)) else return null;
       ?Fr.fromNat(nat);
     };
 
