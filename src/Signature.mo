@@ -6,7 +6,7 @@ import ASN1 "mo:asn1";
 import Int "mo:new-base/Int";
 import Iter "mo:new-base/Iter";
 import Result "mo:new-base/Result";
-import Debug "mo:new-base/Debug";
+import Nat "mo:new-base/Nat";
 import IterTools "mo:itertools/Iter";
 import BaseX "mo:base-x-encoder";
 import NatX "mo:xtended-numbers/NatX";
@@ -64,9 +64,29 @@ module {
         public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
             switch (encoding) {
                 case (#raw) {
+                    let size = switch (curve.getBitSize()) {
+                        case (#b256) 32;
+                    };
+
                     let buf = Buffer.Buffer<Nat8>(64);
-                    NatX.encodeNat(buf, original_r, #msb);
-                    NatX.encodeNat(buf, original_s, #msb);
+                    let encodeAndPad = func(value : Nat) {
+                        let natBuffer = Buffer.Buffer<Nat8>(size);
+                        NatX.encodeNat(natBuffer, value, #msb);
+                        let padding : Nat = size - natBuffer.size();
+                        // Left-pad with zeros if needed
+                        if (padding > 0) {
+                            for (i in Nat.range(0, padding)) {
+                                buf.add(0);
+                            };
+                        };
+                        buf.append(natBuffer);
+                    };
+
+                    // Encode r
+                    encodeAndPad(original_r);
+                    // Encode s
+                    encodeAndPad(original_s);
+
                     Buffer.toArray(buf);
                 };
                 case (#der) {
@@ -95,9 +115,9 @@ module {
             case (#raw) {
                 // Extract r and s values
                 let rBytes = IterTools.take(bytes, 32);
-                let sBytes = IterTools.take(bytes, 32);
 
                 let ?r = Util.toNatAsBigEndian(rBytes) else return #err("Invalid signature: failed to decode r from bytes");
+                let sBytes = IterTools.take(bytes, 32);
                 let ?s = Util.toNatAsBigEndian(sBytes) else return #err("Invalid signature: failed to decode s from bytes");
 
                 #ok(Signature(r, s, curve));
@@ -106,7 +126,6 @@ module {
                 switch (ASN1.decodeDER(bytes)) {
                     case (#err(e)) return #err("Invalid DER format: " # e);
                     case (#ok(#sequence(sequence))) {
-                        Debug.print("ASN1 sequence: " # debug_show sequence);
                         if (sequence.size() != 2) return #err("Invalid DER format: expected 2 elements");
                         let #integer(r) = sequence[0] else return #err("Invalid DER format: expected integer for r");
                         if (r < 0) return #err("Invalid DER format: r is negative");

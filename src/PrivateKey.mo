@@ -2,13 +2,13 @@ import Curve "./Curve";
 import PublicKey "./PublicKey";
 import Signature "./Signature";
 import Iter "mo:base/Iter";
-import Debug "mo:base/Debug";
 import Sha256 "mo:sha2/Sha256";
 import Util "Util";
 import ASN1 "mo:asn1";
 import IterTools "mo:itertools/Iter";
 import Text "mo:new-base/Text";
 import Result "mo:new-base/Result";
+import Runtime "mo:new-base/Runtime";
 import KeyCommon "KeyCommon";
 
 module {
@@ -33,7 +33,7 @@ module {
 
         public func getPublicKey() : PublicKey.PublicKey {
             switch (curve.fromJacobi(curve.mul_base(#fr(d)))) {
-                case (#zero) Debug.trap("Unable to get public key from private key, point was zero");
+                case (#zero) Runtime.trap("Unable to get public key from private key, point was zero");
                 case (#affine(x, y)) {
                     let #fp(x_val) = x;
                     let #fp(y_val) = y;
@@ -46,7 +46,10 @@ module {
             msg : Iter.Iter<Nat8>,
             rand : Iter.Iter<Nat8>,
         ) : Result.Result<Signature.Signature, Text> {
-            let hashedMsg = Sha256.fromIter(#sha256, msg);
+            let hashAlg = switch (curve.getBitSize()) {
+                case (#b256) #sha256;
+            };
+            let hashedMsg = Sha256.fromIter(hashAlg, msg);
             signHashed(hashedMsg.vals(), rand);
         };
 

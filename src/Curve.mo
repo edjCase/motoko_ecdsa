@@ -59,6 +59,10 @@ module {
       case (#prime256v1) false;
     };
 
+    public func getBitSize() : { #b256 } = switch (kind) {
+      case (#secp256k1 or #prime256v1) #b256;
+    };
+
     public let Fp = {
       fromNat = func(n : Nat) : FpElt = #fp(n % p_);
       toNat = func(#fp(x) : FpElt) : Nat = x;
