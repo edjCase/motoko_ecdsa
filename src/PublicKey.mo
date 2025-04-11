@@ -7,21 +7,16 @@ import Signature "./Signature";
 import Util "./Util";
 import ASN1 "mo:asn1";
 import IterTools "mo:itertools/Iter";
-import PeekableIter "mo:itertools/PeekableIter";
 import BaseX "mo:base-x-encoder";
 import Nat "mo:new-base/Nat";
 import Nat8 "mo:new-base/Nat8";
 import Text "mo:new-base/Text";
 import Result "mo:new-base/Result";
+import KeyCommon "KeyCommon";
 
 module {
 
-    public type InputKeyEncoding = {
-        #der;
-        #raw : {
-            curve : Curve.Curve;
-        };
-    };
+    public type InputKeyEncoding = KeyCommon.InputKeyEncoding;
 
     public type OutputKeyEncoding = {
         #der;
@@ -29,28 +24,11 @@ module {
         #uncompressed;
     };
 
-    public type OutputTextFormat = {
-        #pem;
+    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputKeyEncoding> or {
         #jwk;
-        #base64 : {
-            byteEncoding : OutputKeyEncoding;
-            isUriSafe : Bool;
-        };
-        #hex : {
-            byteEncoding : OutputKeyEncoding;
-            format : BaseX.HexOutputFormat;
-        };
     };
-    public type InputTextFormat = {
-        #pem;
-        #base64 : {
-            byteEncoding : InputKeyEncoding;
-        };
-        #hex : {
-            byteEncoding : InputKeyEncoding;
-            format : BaseX.HexInputFormat;
-        };
-    };
+
+    public type InputTextFormat = KeyCommon.InputTextFormat;
 
     public class PublicKey(
         x_ : Nat,
@@ -95,29 +73,20 @@ module {
 
         public func toText(format : OutputTextFormat) : Text {
             switch (format) {
-                case (#hex({ byteEncoding; format })) {
-                    let bytes = toBytes(byteEncoding);
-                    BaseX.toHex(bytes.vals(), format);
+                case (#hex(hex)) {
+                    let bytes = toBytes(hex.byteEncoding);
+                    KeyCommon.toText(bytes, #hex(hex), false);
                 };
-                case (#base64({ byteEncoding; isUriSafe })) {
-                    let bytes = toBytes(byteEncoding);
-                    BaseX.toBase64(bytes.vals(), isUriSafe);
+                case (#base64(base64)) {
+                    let bytes = toBytes(base64.byteEncoding);
+                    KeyCommon.toText(bytes, #base64(base64), false);
                 };
                 case (#pem) {
                     let derBytes = toBytes(#der);
-                    let base64 = BaseX.toBase64(derBytes.vals(), false);
-
-                    let iter = PeekableIter.fromIter(base64.chars());
-                    var formatted = Text.fromIter(IterTools.take(iter, 64));
-                    while (iter.peek() != null) {
-                        formatted #= "\n" # Text.fromIter(IterTools.take(iter, 64));
-                    };
-
-                    "-----BEGIN PUBLIC KEY-----\n"
-                    # formatted
-                    # "\n-----END PUBLIC KEY-----";
+                    KeyCommon.toText(derBytes, #pem, false);
                 };
                 case (#jwk) {
+                    // JWK format is specific to public keys, keep it in PublicKey module
                     // Get uncompressed point format (0x04 + X + Y coordinates)
                     let bytes = toBytes(#uncompressed);
 
@@ -264,59 +233,8 @@ module {
             };
         };
     };
-
     public func fromText(value : Text, format : InputTextFormat) : Result.Result<PublicKey, Text> {
-        switch (format) {
-            case (#hex({ byteEncoding; format })) {
-                // Convert hex to bytes
-                switch (BaseX.fromHex(value, format)) {
-                    case (#ok(bytes)) {
-                        switch (fromBytes(bytes.vals(), byteEncoding)) {
-                            case (#ok(pubKey)) #ok(pubKey);
-                            case (#err(e)) #err("Invalid public key bytes: " # e);
-                        };
-                    };
-                    case (#err(e)) #err("Invalid hex format: " # e);
-                };
-            };
-
-            case (#base64({ byteEncoding })) {
-                // Convert base64 to bytes
-                switch (BaseX.fromBase64(value)) {
-                    case (#ok(bytes)) {
-                        switch (fromBytes(bytes.vals(), byteEncoding)) {
-                            case (#ok(pubKey)) #ok(pubKey);
-                            case (#err(e)) #err("Invalid public key bytes: " # e);
-                        };
-                    };
-                    case (#err(e)) #err("Invalid base64 format: " # e);
-                };
-            };
-            case (#pem) {
-                // Parse PEM format
-                switch (extractPEMContent(value)) {
-                    case (#ok(base64Content)) {
-                        switch (BaseX.fromBase64(base64Content)) {
-                            case (#ok(bytes)) {
-                                switch (fromBytes(bytes.vals(), #der)) {
-                                    case (#ok(pubKey)) #ok(pubKey);
-                                    case (#err(e)) #err("Invalid public key bytes: " # e);
-                                };
-                            };
-                            case (#err(e)) #err("Failed to decode PEM base64: " # e);
-                        };
-                    };
-                    case (#err(e)) #err(e);
-                };
-            };
-        };
-    };
-
-    // Helper function to extract content from PEM format
-    private func extractPEMContent(pem : Text) : Result.Result<Text, Text> {
-        let ?headerTrimmedPem = Text.stripStart(pem, #text("-----BEGIN PUBLIC KEY-----")) else return #err("Invalid PEM format: missing header");
-        let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text("-----END PUBLIC KEY-----")) else return #err("Invalid PEM format: missing footer");
-        #ok(Text.join("", Text.split(trimmedPem, #char('\n'))));
+        KeyCommon.fromText<PublicKey>(value, format, fromBytes, false);
     };
 
 };

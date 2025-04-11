@@ -8,36 +8,22 @@ import Sha256 "mo:sha2/Sha256";
 import Util "Util";
 import ASN1 "mo:asn1";
 import IterTools "mo:itertools/Iter";
-import PeekableIter "mo:itertools/PeekableIter";
-import BaseX "mo:base-x-encoder";
 import Text "mo:new-base/Text";
 import Result "mo:new-base/Result";
+import KeyCommon "KeyCommon";
 
 module {
 
-    public type InputKeyEncoding = {
-        #der;
-        #raw : {
-            curve : Curve.Curve;
-        };
-    };
+    public type InputKeyEncoding = KeyCommon.InputKeyEncoding;
 
     public type OutputKeyEncoding = {
         #der;
         #raw;
     };
 
-    public type OutputTextFormat = {
-        #pem;
-        #base64 : {
-            byteEncoding : OutputKeyEncoding;
-            isUriSafe : Bool;
-        };
-        #hex : {
-            byteEncoding : OutputKeyEncoding;
-            format : BaseX.HexOutputFormat;
-        };
-    };
+    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputKeyEncoding>;
+
+    public type InputTextFormat = KeyCommon.InputTextFormat;
 
     public class PrivateKey(
         d_ : Nat,
@@ -84,27 +70,17 @@ module {
 
         public func toText(format : OutputTextFormat) : Text {
             switch (format) {
-                case (#hex({ byteEncoding; format })) {
-                    let bytes = toBytes(byteEncoding);
-                    BaseX.toHex(bytes.vals(), format);
+                case (#hex(hex)) {
+                    let bytes = toBytes(hex.byteEncoding);
+                    KeyCommon.toText(bytes, #hex(hex), true);
                 };
-                case (#base64({ byteEncoding; isUriSafe })) {
-                    let bytes = toBytes(byteEncoding);
-                    BaseX.toBase64(bytes.vals(), isUriSafe);
+                case (#base64(base64)) {
+                    let bytes = toBytes(base64.byteEncoding);
+                    KeyCommon.toText(bytes, #base64(base64), true);
                 };
                 case (#pem) {
-                    let derBytes = toBytes(#der);
-                    let base64 = BaseX.toBase64(derBytes.vals(), false);
-
-                    let iter = PeekableIter.fromIter(base64.chars());
-                    var formatted = Text.fromIter(IterTools.take(iter, 64));
-                    while (iter.peek() != null) {
-                        formatted #= "\n" # Text.fromIter(IterTools.take(iter, 64));
-                    };
-
-                    "-----BEGIN PRIVATE KEY-----\n"
-                    # formatted
-                    # "\n-----END PRIVATE KEY-----";
+                    let bytes = toBytes(#der);
+                    KeyCommon.toText(bytes, #pem, true);
                 };
             };
         };
@@ -215,5 +191,9 @@ module {
                 };
             };
         };
+    };
+
+    public func fromText(value : Text, format : InputTextFormat) : Result.Result<PrivateKey, Text> {
+        KeyCommon.fromText<PrivateKey>(value, format, fromBytes, true);
     };
 };
