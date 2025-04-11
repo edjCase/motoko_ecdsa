@@ -3,7 +3,6 @@ import PublicKey "./PublicKey";
 import Signature "./Signature";
 import Iter "mo:base/Iter";
 import Debug "mo:base/Debug";
-import Prelude "mo:base/Prelude";
 import Sha256 "mo:sha2/Sha256";
 import Util "Util";
 import ASN1 "mo:asn1";
@@ -14,14 +13,14 @@ import KeyCommon "KeyCommon";
 
 module {
 
-    public type InputKeyEncoding = KeyCommon.InputKeyEncoding;
+    public type InputByteEncoding = KeyCommon.InputByteEncoding;
 
-    public type OutputKeyEncoding = {
+    public type OutputByteEncoding = {
         #der;
         #raw;
     };
 
-    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputKeyEncoding>;
+    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputByteEncoding>;
 
     public type InputTextFormat = KeyCommon.InputTextFormat;
 
@@ -85,7 +84,7 @@ module {
             };
         };
 
-        public func toBytes(encoding : OutputKeyEncoding) : [Nat8] {
+        public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
             switch (encoding) {
                 case (#der) {
                     // For PKCS#8 DER format
@@ -105,10 +104,7 @@ module {
                         #bitString({ data = publicKeyBytes; unusedBits = 0 }),
                     ]);
 
-                    let ecPrivateKeyDerBytes = switch (ASN1.encodeDER(ecPrivateKey)) {
-                        case (#err(_)) Prelude.unreachable(); // TODO?
-                        case (#ok(derBytes)) derBytes;
-                    };
+                    let ecPrivateKeyDerBytes = ASN1.encodeDER(ecPrivateKey);
 
                     // Wrap in PKCS#8 structure
                     let pkcs8 : ASN1.ASN1Value = #sequence([
@@ -120,8 +116,7 @@ module {
                         #octetString(ecPrivateKeyDerBytes),
                     ]);
 
-                    let #ok(bytes) = ASN1.encodeDER(pkcs8) else Prelude.unreachable(); // TODO?
-                    bytes;
+                    ASN1.encodeDER(pkcs8);
                 };
 
                 case (#raw) {
@@ -144,7 +139,7 @@ module {
         };
     };
 
-    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputKeyEncoding) : Result.Result<PrivateKey, Text> {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PrivateKey, Text> {
         switch (encoding) {
             case (#raw({ curve })) {
 

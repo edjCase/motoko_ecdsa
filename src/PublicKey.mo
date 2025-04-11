@@ -1,7 +1,6 @@
 import Curve "./Curve";
 import Iter "mo:base/Iter";
 import Array "mo:base/Array";
-import Prelude "mo:base/Prelude";
 import Sha256 "mo:sha2/Sha256";
 import Signature "./Signature";
 import Util "./Util";
@@ -16,15 +15,15 @@ import KeyCommon "KeyCommon";
 
 module {
 
-    public type InputKeyEncoding = KeyCommon.InputKeyEncoding;
+    public type InputByteEncoding = KeyCommon.InputByteEncoding;
 
-    public type OutputKeyEncoding = {
+    public type OutputByteEncoding = {
         #der;
         #compressed;
         #uncompressed;
     };
 
-    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputKeyEncoding> or {
+    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputByteEncoding> or {
         #jwk;
     };
 
@@ -110,7 +109,7 @@ module {
             };
         };
 
-        public func toBytes(encoding : OutputKeyEncoding) : [Nat8] {
+        public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
             switch (encoding) {
                 case (#der) {
                     let uncompressed = toBytesUncompressed();
@@ -125,8 +124,7 @@ module {
                         ]),
                         #bitString({ data = uncompressed; unusedBits = 0 }),
                     ]);
-                    let #ok(bytes) = ASN1.encodeDER(asn1) else Prelude.unreachable();
-                    bytes;
+                    ASN1.encodeDER(asn1);
                 };
                 case (#uncompressed) toBytesUncompressed();
                 case (#compressed) toBytesCompressed();
@@ -173,7 +171,7 @@ module {
         };
     };
 
-    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputKeyEncoding) : Result.Result<PublicKey, Text> {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PublicKey, Text> {
         switch (encoding) {
             case (#raw({ curve })) {
                 let even = switch (bytes.next()) {

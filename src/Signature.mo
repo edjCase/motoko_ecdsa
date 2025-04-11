@@ -7,11 +7,39 @@ import Int "mo:new-base/Int";
 import Iter "mo:new-base/Iter";
 import Result "mo:new-base/Result";
 import IterTools "mo:itertools/Iter";
+import BaseX "mo:base-x-encoder";
+import NatX "mo:xtended-numbers/NatX";
 
 module {
-    public type SignatureEncoding = {
+    public type InputByteEncoding = {
         #der;
         #raw;
+    };
+
+    public type OutputByteEncoding = {
+        #der;
+        #raw;
+    };
+
+    public type OutputTextFormat = {
+        #base64 : {
+            byteEncoding : OutputByteEncoding;
+            isUriSafe : Bool;
+        };
+        #hex : {
+            byteEncoding : OutputByteEncoding;
+            format : BaseX.HexOutputFormat;
+        };
+    };
+
+    public type InputTextFormat = {
+        #base64 : {
+            byteEncoding : InputByteEncoding;
+        };
+        #hex : {
+            byteEncoding : InputByteEncoding;
+            format : BaseX.HexInputFormat;
+        };
     };
 
     public class Signature(r_ : Nat, s_ : Nat, curve_ : Curve.Curve) {
@@ -32,28 +60,36 @@ module {
             return curve.equal(other.curve) and r == other.r and s == other.s;
         };
 
-        public func toBytesDer() : [Nat8] {
-            let buf = Buffer.Buffer<Nat8>(80);
-            buf.add(0x30); // top marker
-            buf.add(0); // modify size later
-            let append = func(x : Nat) {
-                buf.add(0x02); // marker
-                let a = Util.toBigEndian(x);
-                let adj = if (a[0] >= 0x80) 1 else 0;
-                buf.add(Nat8.fromNat(a.size() + adj));
-                if (adj == 1) buf.add(0x00);
-                for (e in a.vals()) {
-                    buf.add(e);
+        public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
+            switch (encoding) {
+                case (#raw) {
+                    let buf = Buffer.Buffer<Nat8>(64);
+                    NatX.encodeNat(buf, original_r, #msb);
+                    NatX.encodeNat(buf, original_s, #msb);
+                    Buffer.toArray(buf);
+                };
+                case (#der) {
+                    let asn1Value : ASN1.ASN1Value = #sequence([#integer(original_r), #integer(original_s)]);
+                    ASN1.encodeDER(asn1Value);
                 };
             };
-            append(original_r);
-            append(original_s);
-            buf.put(1, Nat8.fromNat(buf.size() - 2)); // set size
-            Buffer.toArray(buf);
+        };
+
+        public func toText(format : OutputTextFormat) : Text {
+            switch (format) {
+                case (#hex(hex)) {
+                    let bytes = toBytes(hex.byteEncoding);
+                    BaseX.toHex(bytes.vals(), hex.format);
+                };
+                case (#base64(base64)) {
+                    let bytes = toBytes(base64.byteEncoding);
+                    BaseX.toBase64(bytes.vals(), base64.isUriSafe);
+                };
+            };
         };
     };
 
-    public func fromBytes(bytes : Iter.Iter<Nat8>, curve : Curve.Curve, encoding : SignatureEncoding) : Result.Result<Signature, Text> {
+    public func fromBytes(bytes : Iter.Iter<Nat8>, curve : Curve.Curve, encoding : InputByteEncoding) : Result.Result<Signature, Text> {
         switch (encoding) {
             case (#raw) {
                 // Extract r and s values
@@ -82,6 +118,5 @@ module {
             };
 
         };
-
     };
 };

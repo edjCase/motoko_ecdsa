@@ -8,21 +8,21 @@ import Curve "Curve";
 
 module {
 
-    public type InputKeyEncoding = {
+    public type InputByteEncoding = {
         #der;
         #raw : {
             curve : Curve.Curve;
         };
     };
 
-    public type OutputTextFormat<OutputKeyEncoding> = {
+    public type OutputTextFormat<OutputByteEncoding> = {
         #pem;
         #base64 : {
-            byteEncoding : OutputKeyEncoding;
+            byteEncoding : OutputByteEncoding;
             isUriSafe : Bool;
         };
         #hex : {
-            byteEncoding : OutputKeyEncoding;
+            byteEncoding : OutputByteEncoding;
             format : BaseX.HexOutputFormat;
         };
     };
@@ -30,10 +30,10 @@ module {
     public type InputTextFormat = {
         #pem;
         #base64 : {
-            byteEncoding : InputKeyEncoding;
+            byteEncoding : InputByteEncoding;
         };
         #hex : {
-            byteEncoding : InputKeyEncoding;
+            byteEncoding : InputByteEncoding;
             format : BaseX.HexInputFormat;
         };
     };
@@ -76,7 +76,7 @@ module {
     public func fromText<TKey>(
         value : Text,
         format : InputTextFormat,
-        fromBytes : (Iter.Iter<Nat8>, InputKeyEncoding) -> Result.Result<TKey, Text>,
+        fromBytes : (Iter.Iter<Nat8>, InputByteEncoding) -> Result.Result<TKey, Text>,
         isPrivate : Bool,
     ) : Result.Result<TKey, Text> {
         switch (format) {
