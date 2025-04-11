@@ -9,7 +9,7 @@ A comprehensive ECDSA implementation for Motoko, supporting secp256k1 and prime2
 
 ## License
 
-Apache 2.0 with LLVM Exception
+Apache 2.0
 
 This project is a fork of the original ECDSA implementation by MITSUNARI Shigeo, maintaining the same license.
 
@@ -54,7 +54,10 @@ switch (privateKeyResult) {
         // Export keys in various formats
         let publicKeyHex = publicKey.toText(#hex({
           byteEncoding = #compressed;
-          format = #lowercase;
+          format = {
+            isUpper = false;
+            prefix = #single("0x");
+          };
         }));
 
         let privateKeyPem = privateKey.toText(#pem);
@@ -74,7 +77,7 @@ import BaseX "mo:base-x-encoder";
 
 // Import a public key from hex format
 let publicKeyHex = "02..."; // Compressed public key in hex
-let publicKeyResult = ECDSA.fromText(publicKeyHex, #hex({
+let publicKeyResult = ECDSA.publicKeyFromText(publicKeyHex, #hex({
   byteEncoding = #raw({ curve = ECDSA.secp256k1Curve() });
   format = {
     prefix = #none;
@@ -85,10 +88,10 @@ let publicKeyResult = ECDSA.fromText(publicKeyHex, #hex({
 switch (publicKeyResult) {
   case (#ok(publicKey)) {
     let signatureBase64 = "..."; // Base64-encoded signature
-    let signatureResult = ECDSA.signatureFromBytes(
-      BaseX.fromBase64(signatureBase64).vals(),
+    let signatureResult = ECDSA.signatureFromText(
+      signatureBase64,
       ECDSA.secp256k1Curve(),
-      #der
+      #base64({ byteEncoding = #der })
     );
 
     switch (signatureResult) {
@@ -128,7 +131,6 @@ public type Signature = SignatureModule.Signature;
 
 // Byte encoding types for input and output
 public type InputByteEncoding = { #raw : { curve : Curve }; #der };
-public type OutputByteEncoding = { #der; #raw } or { #der; #compressed; #uncompressed };
 ```
 
 ### Key Generation and Conversion
@@ -142,9 +144,6 @@ public func generatePrivateKey(entropy : Iter.Iter<Nat8>, curve : Curve) : Resul
 
 // Create a Public Key from coordinates
 public func PublicKey(x : Nat, y : Nat, curve : Curve) : PublicKey
-
-// Derive Public Key from Private Key
-public func getPublicKey() : PublicKey  // Method on PrivateKey
 ```
 
 ### Signing and Verification
@@ -171,41 +170,54 @@ public func privateKeyFromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEnc
 public func signatureFromBytes(bytes : Iter.Iter<Nat8>, curve : Curve, encoding : InputByteEncoding) : Result.Result<Signature, Text>
 
 // Import from text
-public func fromText(value : Text, format : InputTextFormat) : Result.Result<PublicKey or PrivateKey, Text>
+public func publicKeyFromText(text : Text, format : InputTextFormat) : Result.Result<PublicKey, Text>
+public func privateKeyFromText(text : Text, format : InputTextFormat) : Result.Result<PrivateKey, Text>
+public func signatureFromText(text : Text, curve : Curve, format : SignatureInputTextFormat) : Result.Result<Signature, Text>
 
-// Export to text formats
+// Text format methods on objects
 public func toText(format : OutputTextFormat) : Text  // Method on keys and signatures
-
-// Export to bytes
-public func toBytes(encoding : OutputByteEncoding) : [Nat8]  // Method on keys and signatures
 ```
 
 ### Text Format Options
 
 ```motoko
-// Input text formats
+// Input text formats for keys
 public type InputTextFormat = {
   #base64 : { byteEncoding : InputByteEncoding };
   #hex : { byteEncoding : InputByteEncoding; format : BaseX.HexInputFormat };
   #pem;  // For DER-encoded keys in PEM format
 };
 
-// Output text formats
-public type OutputTextFormat = {
-  #base64 : { byteEncoding : OutputByteEncoding; isUriSafe : Bool };
-  #hex : { byteEncoding : OutputByteEncoding; format : BaseX.HexOutputFormat };
+// Output text formats for public keys
+public type PublicKeyOutputTextFormat = {
+  #base64 : { byteEncoding : PublicKeyOutputByteEncoding; isUriSafe : Bool };
+  #hex : { byteEncoding : PublicKeyOutputByteEncoding; format : BaseX.HexOutputFormat };
   #pem;  // For DER-encoded keys in PEM format
   #jwk;  // JSON Web Key format (PublicKey only)
 };
+
+// Output text formats for private keys
+public type PrivateKeyOutputTextFormat = {
+  #base64 : { byteEncoding : PrivateKeyOutputByteEncoding; isUriSafe : Bool };
+  #hex : { byteEncoding : PrivateKeyOutputByteEncoding; format : BaseX.HexOutputFormat };
+  #pem;  // For DER-encoded keys in PEM format
+};
+
+// Output text formats for signatures
+public type SignatureOutputTextFormat = {
+  #base64 : { byteEncoding : SignatureOutputByteEncoding; isUriSafe : Bool };
+  #hex : { byteEncoding : SignatureOutputByteEncoding; format : BaseX.HexOutputFormat };
+};
 ```
 
-## Changes from Original
+## Features
 
-- Completely redesigned API with object-oriented approach
-- Support for multiple key and signature formats (DER, raw, PEM, JWK)
-- Better error handling with Result type
-- More comprehensive serialization options
+- Object-oriented design for keys and signatures
 - Support for compressed and uncompressed public keys
+- Multiple key and signature formats (DER, raw, PEM, JWK)
+- Error handling with Result type
+- Comprehensive serialization options
+- Efficient implementation with GLV endomorphism optimization for secp256k1
 
 ## Original Project
 
