@@ -6,6 +6,7 @@ import ASN1 "mo:asn1";
 import Int "mo:new-base/Int";
 import Iter "mo:new-base/Iter";
 import Result "mo:new-base/Result";
+import Debug "mo:new-base/Debug";
 import IterTools "mo:itertools/Iter";
 import BaseX "mo:base-x-encoder";
 import NatX "mo:xtended-numbers/NatX";
@@ -105,6 +106,7 @@ module {
                 switch (ASN1.decodeDER(bytes)) {
                     case (#err(e)) return #err("Invalid DER format: " # e);
                     case (#ok(#sequence(sequence))) {
+                        Debug.print("ASN1 sequence: " # debug_show sequence);
                         if (sequence.size() != 2) return #err("Invalid DER format: expected 2 elements");
                         let #integer(r) = sequence[0] else return #err("Invalid DER format: expected integer for r");
                         if (r < 0) return #err("Invalid DER format: r is negative");
@@ -117,6 +119,35 @@ module {
                 };
             };
 
+        };
+    };
+
+    public func fromText(value : Text, curve : Curve.Curve, encoding : InputTextFormat) : Result.Result<Signature, Text> {
+        switch (encoding) {
+            case (#hex({ byteEncoding; format })) {
+                // Convert hex to bytes
+                switch (BaseX.fromHex(value, format)) {
+                    case (#ok(bytes)) {
+                        switch (fromBytes(bytes.vals(), curve, byteEncoding)) {
+                            case (#ok(signature)) #ok(signature);
+                            case (#err(e)) #err("Invalid signature bytes: " # e);
+                        };
+                    };
+                    case (#err(e)) #err("Invalid hex format: " # e);
+                };
+            };
+            case (#base64({ byteEncoding })) {
+                // Convert base64 to bytes
+                switch (BaseX.fromBase64(value)) {
+                    case (#ok(bytes)) {
+                        switch (fromBytes(bytes.vals(), curve, byteEncoding)) {
+                            case (#ok(signature)) #ok(signature);
+                            case (#err(e)) #err("Invalid signature bytes: " # e);
+                        };
+                    };
+                    case (#err(e)) #err("Invalid base64 format: " # e);
+                };
+            };
         };
     };
 };

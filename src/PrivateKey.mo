@@ -158,29 +158,44 @@ module {
                     case (#ok(#sequence(sequence))) {
                         if (sequence.size() < 3) return #err("Invalid DER format: expected at least 3 elements");
 
-                        // First element is version (should be 1)
-                        let #integer(1) = sequence[0] else return #err("Invalid DER format: expected version 1");
+                        // First element is version (should be 0)
+                        let #integer(0) = sequence[0] else return #err("Invalid DER format: expected version 0, got " # debug_show (sequence[0]));
 
                         // Second element is the algorithm identifier
                         let #sequence(algorithmIdSequence) = sequence[1] else return #err("Invalid DER format: expected algorithm identifier");
                         if (algorithmIdSequence.size() != 2) return #err("Invalid DER format: expected algorithm identifier with 2 elements");
                         let #objectIdentifier(algorithmOid) = algorithmIdSequence[0] else return #err("Invalid DER format: expected algorithm OID");
-                        let #null_ = algorithmIdSequence[1] else return #err("Invalid DER format: expected null for algorithm identifier parameter");
-                        let curve = if (algorithmOid == [1, 3, 132, 0, 10]) {
+                        if (algorithmOid != [1, 2, 840, 10045, 2, 1]) return #err("Invalid DER format: expected algorithm OID for EC private key");
+                        let #objectIdentifier(algorithmCurveOid) = algorithmIdSequence[1] else return #err("Invalid DER format: expected expected algorithm curve OID");
+                        let curve = if (algorithmCurveOid == [1, 3, 132, 0, 10]) {
                             Curve.secp256k1();
-                        } else if (algorithmOid == [1, 2, 840, 10045, 3, 1, 7]) {
+                        } else if (algorithmCurveOid == [1, 2, 840, 10045, 3, 1, 7]) {
                             Curve.prime256v1();
                         } else {
-                            return #err("Invalid DER format: unsupported algorithm OID - " # debug_show (algorithmOid));
+                            return #err("Invalid DER format: unsupported algorithm curve OID - " # debug_show (algorithmCurveOid));
                         };
 
                         // Third element is the private key as OCTET STRING
                         let #octetString(keyBytes) = sequence[2] else return #err("Invalid DER format: expected private key as OCTET STRING");
 
+                        let keyAsn1 = switch (ASN1.decodeDER(keyBytes.vals())) {
+                            case (#err(e)) return #err("Invalid DER format for inner key bytes: " # e);
+                            case (#ok(keyAsn1)) keyAsn1;
+                        };
+                        let #sequence(keySequence) = keyAsn1 else return #err("Invalid DER format: expected sequence for key bytes");
+                        if (keySequence.size() != 4) return #err("Invalid DER format: expected key sequence with 4 elements, got " # debug_show (keySequence.size()));
+                        // First element is the version (should be 1)
+                        let #integer(1) = keySequence[0] else return #err("Invalid DER format: expected version 1, got " # debug_show (keySequence[0]));
+                        // Second element is the private key as OCTET STRING
+                        let #octetString(privateKeyBytes) = keySequence[1] else return #err("Invalid DER format: expected private key as OCTET STRING");
+                        let #null_ = keySequence[2] else return #err("Invalid DER format: expected null");
+                        // Third element is the public key as BIT STRING
+                        let #bitString(_) = keySequence[3] else return #err("Invalid DER format: expected public key as BIT STRING");
+
                         // TODO private key attributes?
 
                         // Validate the key
-                        fromBytes(keyBytes.vals(), #raw({ curve }));
+                        fromBytes(privateKeyBytes.vals(), #raw({ curve }));
                     };
                     case (#ok(_)) return #err("Invalid DER format: expected sequence");
                 };

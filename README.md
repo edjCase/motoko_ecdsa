@@ -1,6 +1,6 @@
-# ECDSA library for Motoko
+# ECDSA Library for Motoko
 
-A fork of [herumi/ecdsa-motoko](https://github.com/herumi/ecdsa-motoko), providing ECDSA-SHA-256 implementation.
+A comprehensive ECDSA implementation for Motoko, supporting secp256k1 and prime256v1 curves with SHA-256 hashing.
 
 ## Original Project Credits
 
@@ -16,69 +16,196 @@ This project is a fork of the original ECDSA implementation by MITSUNARI Shigeo,
 ## Installation
 
 ```bash
-mops install ecdsa
+mops add ecdsa
 ```
 
-To setup MOPS package manage, follow the instructions from the
+To set up the MOPS package manager, follow the instructions from the
 [MOPS Site](https://j4mwm-bqaaa-aaaam-qajbq-cai.ic0.app/)
+
+## Quick Start
+
+### Generate Key Pair and Sign a Message
+
+```motoko
+import ECDSA "mo:ecdsa";
+import Iter "mo:base/Iter";
+
+// Generate entropy (in a real application, use a secure random source)
+let entropy : [Nat8] = [/* 32 bytes of secure random data */];
+let randomK : [Nat8] = [/* 32 bytes of secure random data */];
+let message : [Nat8] = [/* message bytes */];
+
+// Create a key pair using secp256k1
+let curve = ECDSA.secp256k1Curve();
+let privateKeyResult = ECDSA.generatePrivateKey(entropy.vals(), curve);
+
+switch (privateKeyResult) {
+  case (#ok(privateKey)) {
+    let publicKey = privateKey.getPublicKey();
+
+    // Sign the message
+    let signatureResult = privateKey.sign(message.vals(), randomK.vals());
+
+    switch (signatureResult) {
+      case (#ok(signature)) {
+        // Verify the signature
+        let isValid = publicKey.verify(message.vals(), signature);
+
+        // Export keys in various formats
+        let publicKeyHex = publicKey.toText(#hex({
+          byteEncoding = #compressed;
+          format = #lowercase;
+        }));
+
+        let privateKeyPem = privateKey.toText(#pem);
+      };
+      case (#err(e)) { /* Handle error */ };
+    };
+  };
+  case (#err(e)) { /* Handle error */ };
+};
+```
+
+### Import Keys and Verify a Signature
+
+```motoko
+import ECDSA "mo:ecdsa";
+import BaseX "mo:base-x-encoder";
+
+// Import a public key from hex format
+let publicKeyHex = "02..."; // Compressed public key in hex
+let publicKeyResult = ECDSA.fromText(publicKeyHex, #hex({
+  byteEncoding = #raw({ curve = ECDSA.secp256k1Curve() });
+  format = {
+    prefix = #none;
+  };
+}));
+
+// Import a signature and verify it
+switch (publicKeyResult) {
+  case (#ok(publicKey)) {
+    let signatureBase64 = "..."; // Base64-encoded signature
+    let signatureResult = ECDSA.signatureFromBytes(
+      BaseX.fromBase64(signatureBase64).vals(),
+      ECDSA.secp256k1Curve(),
+      #der
+    );
+
+    switch (signatureResult) {
+      case (#ok(signature)) {
+        let message = [/* message bytes */];
+        let isValid = publicKey.verify(message.vals(), signature);
+      };
+      case (#err(e)) { /* Handle error */ };
+    };
+  };
+  case (#err(e)) { /* Handle error */ };
+};
+```
 
 ## API Reference
 
-### Key Generation and Management
+### Curve Types and Constants
 
 ```motoko
-// Generate a secret key from random bytes
-public func getSecretKey(rand : Iter.Iter<Nat8>) : ?SecretKey
+// Curve types
+public type CurveKind = { #secp256k1; #prime256v1 };
+public type Curve = CurveModule.Curve;
 
-// Derive public key from secret key
-public func getPublicKey(sec : SecretKey) : PublicKey
+// Create curves
+public func Curve(kind : CurveKind) : Curve
+public func secp256k1Curve() : Curve
+public func prime256v1Curve() : Curve
+```
+
+### Key Types
+
+```motoko
+// Public and Private Key types
+public type PublicKey = PublicKeyModule.PublicKey;
+public type PrivateKey = PrivateKeyModule.PrivateKey;
+public type Signature = SignatureModule.Signature;
+
+// Byte encoding types for input and output
+public type InputByteEncoding = { #raw : { curve : Curve }; #der };
+public type OutputByteEncoding = { #der; #raw } or { #der; #compressed; #uncompressed };
+```
+
+### Key Generation and Conversion
+
+```motoko
+// Create a Private Key from a secret scalar d
+public func PrivateKey(d : Nat, curve : Curve) : PrivateKey
+
+// Generate a Private Key from random entropy
+public func generatePrivateKey(entropy : Iter.Iter<Nat8>, curve : Curve) : Result.Result<PrivateKey, Text>
+
+// Create a Public Key from coordinates
+public func PublicKey(x : Nat, y : Nat, curve : Curve) : PublicKey
+
+// Derive Public Key from Private Key
+public func getPublicKey() : PublicKey  // Method on PrivateKey
 ```
 
 ### Signing and Verification
 
 ```motoko
-// Sign a message using SHA-256
-public func sign(sec : SecretKey, msg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : ?Signature
+// Sign methods (on PrivateKey)
+public func sign(msg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : Result.Result<Signature, Text>
+public func signHashed(hashedMsg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : Result.Result<Signature, Text>
 
-// Verify a signature
-public func verify(pub : PublicKey, msg : Iter.Iter<Nat8>, sig : Signature) : Bool
-
-// Sign pre-hashed message
-public func signHashed(sec : SecretKey, hashed : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : ?Signature
-
-// Verify pre-hashed message
-public func verifyHashed(pub : PublicKey, hashed : Iter.Iter<Nat8>, sig : Signature) : Bool
+// Verify methods (on PublicKey)
+public func verify(msg : Iter.Iter<Nat8>, sig : Signature) : Bool
+public func verifyHashed(hashedMsg : Iter.Iter<Nat8>, sig : Signature) : Bool
 ```
 
-### Key Serialization
+### Serialization and Deserialization
 
 ```motoko
-// Serialize public key (uncompressed format)
-public func serializePublicKeyUncompressed(key : Curve.Affine) : Blob
+// Key and Signature Constructors
+public func Signature(r : Nat, s : Nat, curve : Curve) : Signature
 
-// Serialize public key (compressed format)
-public func serializePublicKeyCompressed(key : Curve.Affine) : Blob
+// Import from bytes
+public func publicKeyFromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PublicKey, Text>
+public func privateKeyFromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PrivateKey, Text>
+public func signatureFromBytes(bytes : Iter.Iter<Nat8>, curve : Curve, encoding : InputByteEncoding) : Result.Result<Signature, Text>
 
-// Deserialize public key (uncompressed format)
-public func deserializePublicKeyUncompressed(b : Blob) : ?PublicKey
+// Import from text
+public func fromText(value : Text, format : InputTextFormat) : Result.Result<PublicKey or PrivateKey, Text>
 
-// Deserialize public key (compressed format)
-public func deserializePublicKeyCompressed(b : Blob) : ?PublicKey
+// Export to text formats
+public func toText(format : OutputTextFormat) : Text  // Method on keys and signatures
+
+// Export to bytes
+public func toBytes(encoding : OutputByteEncoding) : [Nat8]  // Method on keys and signatures
 ```
 
-### Signature Serialization
+### Text Format Options
 
 ```motoko
-// Serialize signature to DER format
-public func serializeSignatureDer(sig : Signature) : Blob
+// Input text formats
+public type InputTextFormat = {
+  #base64 : { byteEncoding : InputByteEncoding };
+  #hex : { byteEncoding : InputByteEncoding; format : BaseX.HexInputFormat };
+  #pem;  // For DER-encoded keys in PEM format
+};
 
-// Deserialize signature from DER format
-public func deserializeSignatureDer(b : Blob) : ?Signature
+// Output text formats
+public type OutputTextFormat = {
+  #base64 : { byteEncoding : OutputByteEncoding; isUriSafe : Bool };
+  #hex : { byteEncoding : OutputByteEncoding; format : BaseX.HexOutputFormat };
+  #pem;  // For DER-encoded keys in PEM format
+  #jwk;  // JSON Web Key format (PublicKey only)
+};
 ```
 
 ## Changes from Original
 
-Adapted it to use for the MOPS package manager
+- Completely redesigned API with object-oriented approach
+- Support for multiple key and signature formats (DER, raw, PEM, JWK)
+- Better error handling with Result type
+- More comprehensive serialization options
+- Support for compressed and uncompressed public keys
 
 ## Original Project
 

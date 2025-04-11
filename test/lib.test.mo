@@ -17,7 +17,6 @@ import Result "mo:new-base/Result";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
-import ASN1 "mo:asn1";
 import IterTools "mo:itertools/Iter";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
@@ -889,16 +888,6 @@ for (curveKind in curveKinds.vals()) {
   test(
     "privateKeySerializeTest",
     func() {
-      let asn1AlgorithmIdentifier = func(curveKind : Curve.CurveKind) : ASN1.ASN1Value {
-        let (curveOid, curveParams) : (ASN1.ASN1Value, ASN1.ASN1Value) = switch (curveKind) {
-          case (#secp256k1) (#objectIdentifier([1, 3, 132, 0, 10]), #null_);
-          case (#prime256v1) (#objectIdentifier([1, 2, 840, 10045, 3, 1, 7]), #null_);
-        };
-        #sequence([
-          curveOid,
-          curveParams,
-        ]);
-      };
 
       let privateKeyVal = 0xb1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2;
 
@@ -913,20 +902,6 @@ for (curveKind in curveKinds.vals()) {
       assert (parsedFromRaw.curve.kind == curve.kind);
       assert (parsedFromRaw.d == privateKeyVal);
       assert (parsedFromRaw.getPublicKey().equal(publicKey));
-
-      // Test serialization to DER format
-      let asn1 : ASN1.ASN1Value = #sequence([
-        #integer(1),
-        asn1AlgorithmIdentifier(curveKind),
-        #octetString(rawBytes),
-        #null_,
-      ]);
-      let derBytes = ASN1.encodeDER(asn1);
-
-      // Test parsing from DER format
-      let #ok(parsedFromDer) = PrivateKey.fromBytes(derBytes.vals(), #der) else Debug.trap("Failed to parse DER bytes");
-      assert (parsedFromDer.d == privateKeyVal);
-      assert (parsedFromDer.getPublicKey().equal(publicKey));
     },
   );
 
@@ -1226,6 +1201,7 @@ for (curveKind in curveKinds.vals()) {
         d : Nat;
         outputs : [{
           format : PrivateKey.OutputTextFormat;
+          inputFormat : ?PrivateKey.InputTextFormat;
           expectedText : Text;
         }];
       };
@@ -1241,6 +1217,12 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #der;
               });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
               expectedText = "0x308184020100301006072a8648ce3d020106052b8104000a046d306b0201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da20500034200040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
             },
             {
@@ -1250,6 +1232,12 @@ for (curveKind in curveKinds.vals()) {
                   prefix = #none;
                 };
                 byteEncoding = #raw;
+              });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #none;
+                };
+                byteEncoding = #raw({ curve });
               });
               expectedText = "B1AA6282B14E5FFBF6D12F783612F804E6A20D1A9734FFBB6C9923C670EE8DA2";
             },
@@ -1261,11 +1249,20 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #raw;
               });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #raw({ curve });
+              });
               expectedText = "\\xB1\\xAA\\x62\\x82\\xB1\\x4E\\x5F\\xFB\\xF6\\xD1\\x2F\\x78\\x36\\x12\\xF8\\x04\\xE6\\xA2\\x0D\\x1A\\x97\\x34\\xFF\\xBB\\x6C\\x99\\x23\\xC6\\x70\\xEE\\x8D\\xA2";
             },
             {
               format = #base64({
                 isUriSafe = false;
+                byteEncoding = #der;
+              });
+              inputFormat = ?#base64({
                 byteEncoding = #der;
               });
               expectedText = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX/v20S94NhL4BOaiDRqXNP+7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj+7W9iMYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggLER+N";
@@ -1275,16 +1272,23 @@ for (curveKind in curveKinds.vals()) {
                 isUriSafe = true;
                 byteEncoding = #der;
               });
+              inputFormat = ?#base64({
+                byteEncoding = #der;
+              });
               expectedText = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj-7W9iMYZ_GOT3aPaU-DpMIks23eZ7qj9Rbn_83fYOPQQZFQomuiggLER-N";
             },
             {
               format = #pem;
+              inputFormat = ?#pem;
               expectedText = "-----BEGIN PRIVATE KEY-----\nMIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX/v20S94NhL4\nBOaiDRqXNP+7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj+7W9iM\nYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggLER+N\n-----END PRIVATE KEY-----";
             },
             {
               format = #base64({
                 isUriSafe = true;
                 byteEncoding = #raw;
+              });
+              inputFormat = ?#base64({
+                byteEncoding = #raw({ curve });
               });
               expectedText = "sapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaI";
             },
@@ -1294,10 +1298,25 @@ for (curveKind in curveKinds.vals()) {
       };
       for ({ d; outputs } in testCases.vals()) {
         let key = PrivateKey.PrivateKey(d, curve);
-        for ({ format; expectedText } in outputs.vals()) {
+        for ({ format; inputFormat; expectedText } in outputs.vals()) {
           let actualText = key.toText(format);
           if (actualText != expectedText) {
             Debug.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+          };
+
+          switch (inputFormat) {
+            case (null) ();
+            case (?inputFormat) {
+              switch (PrivateKey.fromText(actualText, inputFormat)) {
+                case (#err(e)) Debug.trap("Failed to parse public key from text: " # debug_show (e) # "\nText: " # actualText);
+                case (#ok(parsedKey)) {
+                  assert (parsedKey.curve.kind == curve.kind);
+                  if (parsedKey.d != d) {
+                    Debug.trap("Parsed public key mismatch:\nText=" #actualText # "\nExpected\nd=" # debug_show (d) # "\nActual\nd=" # debug_show (parsedKey.d));
+                  };
+                };
+              };
+            };
           };
         };
       };
@@ -1313,6 +1332,7 @@ for (curveKind in curveKinds.vals()) {
         s : Nat;
         outputs : [{
           format : Signature.OutputTextFormat;
+          inputFormat : ?Signature.InputTextFormat;
           expectedText : Text;
         }];
       };
@@ -1329,12 +1349,24 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #der;
               });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #single("0x");
+                };
+                byteEncoding = #der;
+              });
               expectedText = "0x3046022100a1b2c3d4e5f67890abcdef0123456789abcdef0123456789abcdef01234567890221009876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba";
             },
             {
               format = #hex({
                 format = {
                   isUpper = true;
+                  prefix = #none;
+                };
+                byteEncoding = #raw;
+              });
+              inputFormat = ?#hex({
+                format = {
                   prefix = #none;
                 };
                 byteEncoding = #raw;
@@ -1349,11 +1381,20 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #raw;
               });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #perByte("\\x");
+                };
+                byteEncoding = #raw;
+              });
               expectedText = "\\xA1\\xB2\\xC3\\xD4\\xE5\\xF6\\x78\\x90\\xAB\\xCD\\xEF\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\x01\\x23\\x45\\x67\\x89\\xAB\\xCD\\xEF\\x01\\x23\\x45\\x67\\x89\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA\\x98\\x76\\x54\\x32\\x10\\xFE\\xDC\\xBA";
             },
             {
               format = #base64({
                 isUriSafe = false;
+                byteEncoding = #der;
+              });
+              inputFormat = ?#base64({
                 byteEncoding = #der;
               });
               expectedText = "MEYCIQChssPU5fZ4kKvN7wEjRWeJq83vASNFZ4mrze8BI0VniQIhAJh2VDIQ/ty6mHZUMhD+3LqYdlQyEP7cuph2VDIQ/ty6";
@@ -1363,11 +1404,17 @@ for (curveKind in curveKinds.vals()) {
                 isUriSafe = true;
                 byteEncoding = #der;
               });
+              inputFormat = ?#base64({
+                byteEncoding = #der;
+              });
               expectedText = "MEYCIQChssPU5fZ4kKvN7wEjRWeJq83vASNFZ4mrze8BI0VniQIhAJh2VDIQ_ty6mHZUMhD-3LqYdlQyEP7cuph2VDIQ_ty6";
             },
             {
               format = #base64({
                 isUriSafe = true;
+                byteEncoding = #raw;
+              });
+              inputFormat = ?#base64({
                 byteEncoding = #raw;
               });
               expectedText = "obLD1OX2eJCrze8BI0VniavN7wEjRWeJq83vASNFZ4mYdlQyEP7cuph2VDIQ_ty6mHZUMhD-3LqYdlQyEP7cug";
@@ -1379,10 +1426,25 @@ for (curveKind in curveKinds.vals()) {
 
       for ({ r; s; outputs } in testCases.vals()) {
         let signature = Signature.Signature(r, s, curve);
-        for ({ format; expectedText } in outputs.vals()) {
+        for ({ format; inputFormat; expectedText } in outputs.vals()) {
           let actualText = signature.toText(format);
           if (actualText != expectedText) {
             Debug.trap("Signature text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+          };
+
+          switch (inputFormat) {
+            case (null) ();
+            case (?inputFormat) {
+              switch (Signature.fromText(actualText, curve, inputFormat)) {
+                case (#err(e)) Debug.trap("Failed to parse signature from text: " # debug_show (e) # "\nText: " # actualText);
+                case (#ok(parsedSignature)) {
+                  assert (parsedSignature.curve.kind == curve.kind);
+                  if (parsedSignature.original_r != r or parsedSignature.original_s != s) {
+                    Debug.trap("Parsed signature mismatch:\nText=" #actualText # "\nExpected\nr=" # debug_show (r) # "\ns=" # debug_show (s) # "\nActual\nr=" # debug_show (parsedSignature.r) # "\ns=" # debug_show (parsedSignature.s));
+                  };
+                };
+              };
+            };
           };
         };
       };
