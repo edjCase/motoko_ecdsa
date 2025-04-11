@@ -108,77 +108,71 @@ switch (publicKeyResult) {
 
 ## API Reference
 
-### Curve Types and Constants
+### Main Module Types and Functions
+
+From the lib.mo file, these are the main types and functions available when you import ECDSA:
 
 ```motoko
-// Curve types
-public type CurveKind = { #secp256k1; #prime256v1 };
-public type Curve = CurveModule.Curve;
 
-// Create curves
-public func Curve(kind : CurveKind) : Curve
-public func secp256k1Curve() : Curve
-public func prime256v1Curve() : Curve
-```
-
-### Key Types
-
-```motoko
-// Public and Private Key types
-public type PublicKey = PublicKeyModule.PublicKey;
-public type PrivateKey = PrivateKeyModule.PrivateKey;
-public type Signature = SignatureModule.Signature;
-
-// Byte encoding types for input and output
-public type InputByteEncoding = { #raw : { curve : Curve }; #der };
-```
-
-### Key Generation and Conversion
-
-```motoko
-// Create a Private Key from a secret scalar d
-public func PrivateKey(d : Nat, curve : Curve) : PrivateKey
-
-// Generate a Private Key from random entropy
-public func generatePrivateKey(entropy : Iter.Iter<Nat8>, curve : Curve) : Result.Result<PrivateKey, Text>
-
-// Create a Public Key from coordinates
-public func PublicKey(x : Nat, y : Nat, curve : Curve) : PublicKey
-```
-
-### Signing and Verification
-
-```motoko
-// Sign methods (on PrivateKey)
-public func sign(msg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : Result.Result<Signature, Text>
-public func signHashed(hashedMsg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : Result.Result<Signature, Text>
-
-// Verify methods (on PublicKey)
-public func verify(msg : Iter.Iter<Nat8>, sig : Signature) : Bool
-public func verifyHashed(hashedMsg : Iter.Iter<Nat8>, sig : Signature) : Bool
-```
-
-### Serialization and Deserialization
-
-```motoko
-// Key and Signature Constructors
-public func Signature(r : Nat, s : Nat, curve : Curve) : Signature
+// New Private Key generation
+public func generatePrivateKey(entropy : Iter.Iter<Nat8>, curve : Curve) : Result.Result<PrivateKey, Text>;
 
 // Import from bytes
-public func publicKeyFromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PublicKey, Text>
-public func privateKeyFromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PrivateKey, Text>
-public func signatureFromBytes(bytes : Iter.Iter<Nat8>, curve : Curve, encoding : InputByteEncoding) : Result.Result<Signature, Text>
+public func publicKeyFromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PublicKey, Text>;
+public func privateKeyFromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PrivateKey, Text>;
+public func signatureFromBytes(bytes : Iter.Iter<Nat8>, curve : Curve, encoding : InputByteEncoding) : Result.Result<Signature, Text>;
 
 // Import from text
-public func publicKeyFromText(text : Text, format : InputTextFormat) : Result.Result<PublicKey, Text>
-public func privateKeyFromText(text : Text, format : InputTextFormat) : Result.Result<PrivateKey, Text>
-public func signatureFromText(text : Text, curve : Curve, format : SignatureInputTextFormat) : Result.Result<Signature, Text>
+public func publicKeyFromText(text : Text, format : InputTextFormat) : Result.Result<PublicKey, Text>;
+public func privateKeyFromText(text : Text, format : InputTextFormat) : Result.Result<PrivateKey, Text>;
+public func signatureFromText(text : Text, curve : Curve, format : InputTextFormat) : Result.Result<Signature, Text>;
 
-// Text format methods on objects
-public func toText(format : OutputTextFormat) : Text  // Method on keys and signatures
+// Manual Creation Functions
+public func PublicKey(x : Nat, y : Nat, curve : Curve) : PublicKey;
+public func PrivateKey(d : Nat, curve : Curve) : PrivateKey;
+public func Signature(r : Nat, s : Nat, curve : Curve) : Signature;
+
+
+// Curve Functions
+public type CurveKind = { #secp256k1; #prime256v1 };
+
+public func Curve(kind : CurveKind) : Curve;
+public func secp256k1Curve() : Curve;
+public func prime256v1Curve() : Curve;
 ```
 
-### Text Format Options
+### PublicKey Methods
+
+```motoko
+// Methods on PublicKey objects
+public func equal(other : PublicKey) : Bool;
+public func verify(msg : Iter.Iter<Nat8>, sig : Signature) : Bool;
+public func verifyHashed(hashedMsg : Iter.Iter<Nat8>, sig : Signature) : Bool;
+public func toText(format : OutputTextFormat) : Text;
+public func toBytes(encoding : OutputByteEncoding) : [Nat8];
+```
+
+### PrivateKey Methods
+
+```motoko
+// Methods on PrivateKey objects
+public func getPublicKey() : PublicKey;
+public func sign(msg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : Result.Result<Signature, Text>;
+public func signHashed(hashedMsg : Iter.Iter<Nat8>, rand : Iter.Iter<Nat8>) : Result.Result<Signature, Text>;
+public func toText(format : OutputTextFormat) : Text;
+public func toBytes(encoding : OutputByteEncoding) : [Nat8];
+```
+
+### Signature Methods
+
+```motoko
+// Methods on Signature objects
+public func equal(other : Signature) : Bool;
+public func toText(format : OutputTextFormat) : Text;
+public func toBytes(encoding : OutputByteEncoding) : [Nat8];
+```
+
+### Byte and Text Format Types
 
 ```motoko
 // Input text formats for keys
@@ -209,15 +203,6 @@ public type SignatureOutputTextFormat = {
   #hex : { byteEncoding : SignatureOutputByteEncoding; format : BaseX.HexOutputFormat };
 };
 ```
-
-## Features
-
-- Object-oriented design for keys and signatures
-- Support for compressed and uncompressed public keys
-- Multiple key and signature formats (DER, raw, PEM, JWK)
-- Error handling with Result type
-- Comprehensive serialization options
-- Efficient implementation with GLV endomorphism optimization for secp256k1
 
 ## Original Project
 
