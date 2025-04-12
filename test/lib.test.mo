@@ -922,11 +922,11 @@ for (curveKind in curveKinds.vals()) {
       // Empty bytes
       let emptyBytes : [Nat8] = [];
       assertIsErr(PrivateKey.fromBytes(emptyBytes.vals(), #raw({ curve })), "empty raw");
-      assertIsErr(PrivateKey.fromBytes(emptyBytes.vals(), #der), "empty der");
+      assertIsErr(PrivateKey.fromBytes(emptyBytes.vals(), #pkcs8), "empty der");
 
       // Invalid DER structure
       let invalidDer : [Nat8] = [0x30, 0x03, 0x02, 0x01, 0x01]; // Too short
-      assertIsErr(PrivateKey.fromBytes(invalidDer.vals(), #der), "invalid der");
+      assertIsErr(PrivateKey.fromBytes(invalidDer.vals(), #pkcs8), "invalid der");
 
       // Zero value (invalid for EC private key)
       let zeroKeyRaw = Array.tabulate<Nat8>(32, func(_) = 0);
@@ -954,7 +954,7 @@ for (curveKind in curveKinds.vals()) {
           "\30\59\30\13\06\07\2a\86\48\ce\3d\02\01\06\08\2a\86\48\ce\3d\03\01\07\03\42\00\04\12\3b\8c\f8\c0\97\44\89\7e\dc\31\52\2d\7c\ad\e9\49\37\b8\43\01\ae\b2\a8\1c\50\58\ed\cf\88\f1\32\0a\21\19\62\72\4f\a3\c4\c1\e4\16\af\1c\3f\9d\78\46\77\53\3d\b9\68\dd\0d\a4\76\28\d0\0f\0b\24\a2",
         );
       };
-      switch (PublicKey.fromBytes(key.vals(), #der)) {
+      switch (PublicKey.fromBytes(key.vals(), #spki)) {
         case (#err(e)) Debug.trap("Failed to parse public key: " # debug_show (e));
         case (#ok(publicKey)) {
           assert (publicKey.curve.kind == curveKind);
@@ -989,13 +989,13 @@ for (curveKind in curveKinds.vals()) {
                   isUpper = false;
                   prefix = #single("0x");
                 };
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               inputFormat = ?#hex({
                 format = {
                   prefix = #single("0x");
                 };
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               expectedText = "0x3056301006072a8648ce3d020106052b8104000a0342000454f648b4aa867598eca33659855a2e99bf3522b938a3dd3cd308e45c42da15370145e83b45b726ad23f5baf69f68460e27d2e766cc7ed2fd6eca90ae33d8115e";
             },
@@ -1034,26 +1034,26 @@ for (curveKind in curveKinds.vals()) {
             {
               format = #base64({
                 isUriSafe = false;
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               inputFormat = ?#base64({
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               expectedText = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o9080wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==";
             },
             {
               format = #base64({
                 isUriSafe = true;
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               inputFormat = ?#base64({
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               expectedText = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o9080wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx-0v1uypCuM9gRXg";
             },
             {
-              format = #pem;
-              inputFormat = ?#pem;
+              format = #pem({ byteEncoding = #spki });
+              inputFormat = ?#pem({ byteEncoding = #spki });
               expectedText = "-----BEGIN PUBLIC KEY-----\nMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o908\n0wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==\n-----END PUBLIC KEY-----";
             },
             {
@@ -1083,13 +1083,13 @@ for (curveKind in curveKinds.vals()) {
                   isUpper = false;
                   prefix = #single("0x");
                 };
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               inputFormat = ?#hex({
                 format = {
                   prefix = #single("0x");
                 };
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               expectedText = "0x3059301306072a8648ce3d020106082a8648ce3d03010703420004123b8cf8c09744897edc31522d7cade94937b84301aeb2a81c5058edcf88f1320a211962724fa3c4c1e416af1c3f9d784677533db968dd0da47628d00f0b24a2";
             },
@@ -1128,26 +1128,26 @@ for (curveKind in curveKinds.vals()) {
             {
               format = #base64({
                 isUriSafe = false;
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               inputFormat = ?#base64({
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               expectedText = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM+MCXRIl+3DFSLXyt6Uk3uEMBrrKoHFBY7c+I8TIKIRlick+jxMHkFq8cP514RndTPblo3Q2kdijQDwskog==";
             },
             {
               format = #base64({
                 isUriSafe = true;
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               inputFormat = ?#base64({
-                byteEncoding = #der;
+                byteEncoding = #spki;
               });
               expectedText = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM-MCXRIl-3DFSLXyt6Uk3uEMBrrKoHFBY7c-I8TIKIRlick-jxMHkFq8cP514RndTPblo3Q2kdijQDwskog";
             },
             {
-              format = #pem;
-              inputFormat = ?#pem;
+              format = #pem({ byteEncoding = #spki });
+              inputFormat = ?#pem({ byteEncoding = #spki });
               expectedText = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM+MCXRIl+3DFSLXyt6Uk3uEMB\nrrKoHFBY7c+I8TIKIRlick+jxMHkFq8cP514RndTPblo3Q2kdijQDwskog==\n-----END PUBLIC KEY-----";
             },
             {
@@ -1215,13 +1215,13 @@ for (curveKind in curveKinds.vals()) {
                   isUpper = false;
                   prefix = #single("0x");
                 };
-                byteEncoding = #der;
+                byteEncoding = #pkcs8;
               });
               inputFormat = ?#hex({
                 format = {
                   prefix = #single("0x");
                 };
-                byteEncoding = #der;
+                byteEncoding = #pkcs8;
               });
               expectedText = "0x308184020100301006072a8648ce3d020106052b8104000a046d306b0201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da20500034200040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
             },
@@ -1260,26 +1260,30 @@ for (curveKind in curveKinds.vals()) {
             {
               format = #base64({
                 isUriSafe = false;
-                byteEncoding = #der;
+                byteEncoding = #sec1;
               });
               inputFormat = ?#base64({
-                byteEncoding = #der;
+                byteEncoding = #sec1({ curve });
               });
-              expectedText = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX/v20S94NhL4BOaiDRqXNP+7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj+7W9iMYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggLER+N";
+              expectedText = "MGsCAQEEILGqYoKxTl/79tEveDYS+ATmog0alzT/u2yZI8Zw7o2iBQADQgAECgn/FC2UvD9Wxcgbdeo7BrCCxSY/u1vYjGGfxjk92j2lPg6TCJLNt3me6o/UW5//N32Dj0EGRUKJrooICxEfjQ==";
             },
             {
               format = #base64({
                 isUriSafe = true;
-                byteEncoding = #der;
+                byteEncoding = #pkcs8;
               });
               inputFormat = ?#base64({
-                byteEncoding = #der;
+                byteEncoding = #pkcs8;
               });
               expectedText = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj-7W9iMYZ_GOT3aPaU-DpMIks23eZ7qj9Rbn_83fYOPQQZFQomuiggLER-N";
             },
             {
-              format = #pem;
-              inputFormat = ?#pem;
+              format = #pem({
+                byteEncoding = #pkcs8;
+              });
+              inputFormat = ?#pem({
+                byteEncoding = #pkcs8;
+              });
               expectedText = "-----BEGIN PRIVATE KEY-----\nMIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX/v20S94NhL4\nBOaiDRqXNP+7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj+7W9iM\nYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggLER+N\n-----END PRIVATE KEY-----";
             },
             {

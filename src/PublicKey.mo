@@ -15,19 +15,37 @@ import KeyCommon "KeyCommon";
 
 module {
 
-    public type InputByteEncoding = KeyCommon.InputByteEncoding;
+    public type PEMInputByteEncoding = {
+        #spki;
+        #ec_public : {
+            curve : Curve.Curve;
+        };
+    };
 
-    public type OutputByteEncoding = {
-        #der;
+    public type InputByteEncoding = PEMInputByteEncoding or KeyCommon.CommonInputByteEncoding;
+
+    public type PEMOutputEncoding = {
+        #spki; // Subject Public Key Info
+        #ec_public; // EC public key in ASN.1 DER format
+    };
+
+    public type OutputByteEncoding = PEMOutputEncoding or {
         #compressed;
         #uncompressed;
     };
 
-    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputByteEncoding> or {
+    public type OutputTextFormat = KeyCommon.CommonOutputTextFormat<OutputByteEncoding> or {
         #jwk;
+        #pem : {
+            byteEncoding : PEMOutputEncoding;
+        };
     };
 
-    public type InputTextFormat = KeyCommon.InputTextFormat;
+    public type InputTextFormat = KeyCommon.CommonInputTextFormat<InputByteEncoding> or {
+        #pem : {
+            byteEncoding : PEMInputByteEncoding;
+        };
+    };
 
     public class PublicKey(
         x_ : Nat,
@@ -74,15 +92,19 @@ module {
             switch (format) {
                 case (#hex(hex)) {
                     let bytes = toBytes(hex.byteEncoding);
-                    KeyCommon.toText(bytes, #hex(hex), false);
+                    KeyCommon.toText(bytes, #hex(hex));
                 };
                 case (#base64(base64)) {
                     let bytes = toBytes(base64.byteEncoding);
-                    KeyCommon.toText(bytes, #base64(base64), false);
+                    KeyCommon.toText(bytes, #base64(base64));
                 };
-                case (#pem) {
-                    let derBytes = toBytes(#der);
-                    KeyCommon.toText(derBytes, #pem, false);
+                case (#pem({ byteEncoding })) {
+                    let bytes = toBytes(byteEncoding);
+                    let keyType = switch (byteEncoding) {
+                        case (#spki) ("PUBLIC");
+                        case (#ec_public) ("EC PUBLIC");
+                    };
+                    KeyCommon.toText(bytes, #pem({ keyType }));
                 };
                 case (#jwk) {
                     // JWK format is specific to public keys, keep it in PublicKey module
@@ -111,7 +133,7 @@ module {
 
         public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
             switch (encoding) {
-                case (#der) {
+                case (#spki) {
                     let uncompressed = toBytesUncompressed();
                     let curveOid = switch (curve.kind) {
                         case (#secp256k1) [1, 3, 132, 0, 10];
@@ -124,6 +146,14 @@ module {
                         ]),
                         #bitString({ data = uncompressed; unusedBits = 0 }),
                     ]);
+                    ASN1.encodeDER(asn1);
+                };
+                case (#ec_public) {
+                    let uncompressed = toBytesUncompressed();
+                    let asn1 : ASN1.ASN1Value = #bitString({
+                        data = uncompressed;
+                        unusedBits = 0;
+                    });
                     ASN1.encodeDER(asn1);
                 };
                 case (#uncompressed) toBytesUncompressed();
@@ -197,7 +227,17 @@ module {
                 let ?#fp(y) = curve.getYfromX(#fp(x), even) else return #err("Unable to calculate y coordinate");
                 #ok(PublicKey(x, y, curve));
             };
-            case (#der) {
+            case (#ec_public({ curve })) {
+                let asn1 = ASN1.decodeDER(bytes);
+                switch (asn1) {
+                    case (#err(e)) return #err("Invalid ANS1 DER format: " # e);
+                    case (#ok(#bitString({ data = keyBytes; unusedBits = 0 }))) {
+                        fromBytes(keyBytes.vals(), #raw({ curve }));
+                    };
+                    case (#ok(_)) return #err("Invalid DER format: expected sequence");
+                };
+            };
+            case (#spki) {
                 let asn1 = ASN1.decodeDER(bytes);
                 switch (asn1) {
                     case (#err(e)) return #err("Invalid ANS1 DER format: " # e);
@@ -232,7 +272,21 @@ module {
         };
     };
     public func fromText(value : Text, format : InputTextFormat) : Result.Result<PublicKey, Text> {
-        KeyCommon.fromText<PublicKey>(value, format, fromBytes, false);
+        let (internalFormat, byteEncoding) = switch (format) {
+            case (#hex({ format; byteEncoding })) (#hex({ format }), byteEncoding);
+            case (#base64({ byteEncoding })) (#base64, byteEncoding);
+            case (#pem({ byteEncoding })) switch (byteEncoding) {
+                case (#spki) (#pem({ keyType = "PUBLIC" }), #spki);
+                case (#ec_public({ curve })) (#pem({ keyType = "EC PUBLIC" }), #ec_public({ curve }));
+            };
+        };
+        KeyCommon.fromText<PublicKey>(
+            value,
+            internalFormat,
+            func(bytes : Iter.Iter<Nat8>) : Result.Result<PublicKey, Text> {
+                fromBytes(bytes, byteEncoding);
+            },
+        );
     };
 
 };

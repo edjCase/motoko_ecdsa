@@ -2,6 +2,7 @@ import Curve "./Curve";
 import PublicKey "./PublicKey";
 import Signature "./Signature";
 import Iter "mo:base/Iter";
+import Nat8 "mo:base/Nat8";
 import Sha256 "mo:sha2/Sha256";
 import Util "Util";
 import ASN1 "mo:asn1";
@@ -13,16 +14,35 @@ import KeyCommon "KeyCommon";
 
 module {
 
-    public type InputByteEncoding = KeyCommon.InputByteEncoding;
+    public type PEMInputByteEncoding = {
+        #sec1 : {
+            curve : Curve.Curve;
+        }; // SEC1 format
+        #pkcs8; // PKCS#8 format
+    };
 
-    public type OutputByteEncoding = {
-        #der;
+    public type InputByteEncoding = PEMInputByteEncoding or KeyCommon.CommonInputByteEncoding;
+
+    public type PEMOutputByteEncoding = {
+        #sec1; // SEC1 format
+        #pkcs8; // PKCS#8 format
+    };
+
+    public type OutputByteEncoding = PEMOutputByteEncoding or {
         #raw;
     };
 
-    public type OutputTextFormat = KeyCommon.OutputTextFormat<OutputByteEncoding>;
+    public type OutputTextFormat = KeyCommon.CommonOutputTextFormat<OutputByteEncoding> or {
+        #pem : {
+            byteEncoding : PEMOutputByteEncoding;
+        };
+    };
 
-    public type InputTextFormat = KeyCommon.InputTextFormat;
+    public type InputTextFormat = KeyCommon.CommonInputTextFormat<InputByteEncoding> or {
+        #pem : {
+            byteEncoding : PEMInputByteEncoding;
+        };
+    };
 
     public class PrivateKey(
         d_ : Nat,
@@ -74,40 +94,45 @@ module {
             switch (format) {
                 case (#hex(hex)) {
                     let bytes = toBytes(hex.byteEncoding);
-                    KeyCommon.toText(bytes, #hex(hex), true);
+                    KeyCommon.toText(bytes, #hex(hex));
                 };
                 case (#base64(base64)) {
                     let bytes = toBytes(base64.byteEncoding);
-                    KeyCommon.toText(bytes, #base64(base64), true);
+                    KeyCommon.toText(bytes, #base64(base64));
                 };
-                case (#pem) {
-                    let bytes = toBytes(#der);
-                    KeyCommon.toText(bytes, #pem, true);
+                case (#pem({ byteEncoding })) {
+                    let bytes = toBytes(byteEncoding);
+                    let keyType = switch (byteEncoding) {
+                        case (#pkcs8) ("PRIVATE");
+                        case (#sec1) ("EC PRIVATE");
+                    };
+                    KeyCommon.toText(bytes, #pem({ keyType }));
                 };
             };
         };
 
         public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
             switch (encoding) {
-                case (#der) {
-                    // For PKCS#8 DER format
-                    let privateKeyBytes = toBytes(#raw);
+                case (#sec1) {
                     let publicKeyBytes = getPublicKey().toBytes(#uncompressed);
-
-                    let curveOid = switch (curve.kind) {
-                        case (#secp256k1) [1, 3, 132, 0, 10];
-                        case (#prime256v1) [1, 2, 840, 10045, 3, 1, 7];
-                    };
-
-                    // Create ASN.1 structure for EC private key
+                    let privateKeyBytes = toBytes(#raw);
                     let ecPrivateKey : ASN1.ASN1Value = #sequence([
                         #integer(1), // EC private key version
                         #octetString(privateKeyBytes),
                         #null_,
                         #bitString({ data = publicKeyBytes; unusedBits = 0 }),
                     ]);
+                    ASN1.encodeDER(ecPrivateKey);
+                };
+                case (#pkcs8) {
+                    let curveOid = switch (curve.kind) {
+                        case (#secp256k1) [1, 3, 132, 0, 10];
+                        case (#prime256v1) [1, 2, 840, 10045, 3, 1, 7];
+                    };
 
-                    let ecPrivateKeyDerBytes = ASN1.encodeDER(ecPrivateKey);
+                    // Create ASN.1 structure for EC private key
+
+                    let ecPrivateKeyDerBytes = toBytes(#sec1);
 
                     // Wrap in PKCS#8 structure
                     let pkcs8 : ASN1.ASN1Value = #sequence([
@@ -155,7 +180,27 @@ module {
 
                 #ok(PrivateKey(d, curve));
             };
-            case (#der) {
+            case (#sec1({ curve })) {
+                let keyAsn1 = switch (ASN1.decodeDER(bytes)) {
+                    case (#err(e)) return #err("Invalid DER format for inner key bytes: " # e);
+                    case (#ok(keyAsn1)) keyAsn1;
+                };
+                let #sequence(keySequence) = keyAsn1 else return #err("Invalid DER format: expected sequence for key bytes");
+                if (keySequence.size() != 4) return #err("Invalid DER format: expected key sequence with 4 elements, got " # debug_show (keySequence.size()));
+                // First element is the version (should be 1)
+                let #integer(1) = keySequence[0] else return #err("Invalid DER format: expected version 1, got " # debug_show (keySequence[0]));
+                // Second element is the private key as OCTET STRING
+                let #octetString(privateKeyBytes) = keySequence[1] else return #err("Invalid DER format: expected private key as OCTET STRING");
+                let #null_ = keySequence[2] else return #err("Invalid DER format: expected null");
+                // Third element is the public key as BIT STRING
+                let #bitString(_) = keySequence[3] else return #err("Invalid DER format: expected public key as BIT STRING");
+
+                // TODO private key attributes?
+
+                // Validate the key
+                fromBytes(privateKeyBytes.vals(), #raw({ curve }));
+            };
+            case (#pkcs8) {
                 switch (ASN1.decodeDER(bytes)) {
                     case (#err(e)) return #err("Invalid DER format: " # e);
                     case (#ok(#sequence(sequence))) {
@@ -181,24 +226,7 @@ module {
                         // Third element is the private key as OCTET STRING
                         let #octetString(keyBytes) = sequence[2] else return #err("Invalid DER format: expected private key as OCTET STRING");
 
-                        let keyAsn1 = switch (ASN1.decodeDER(keyBytes.vals())) {
-                            case (#err(e)) return #err("Invalid DER format for inner key bytes: " # e);
-                            case (#ok(keyAsn1)) keyAsn1;
-                        };
-                        let #sequence(keySequence) = keyAsn1 else return #err("Invalid DER format: expected sequence for key bytes");
-                        if (keySequence.size() != 4) return #err("Invalid DER format: expected key sequence with 4 elements, got " # debug_show (keySequence.size()));
-                        // First element is the version (should be 1)
-                        let #integer(1) = keySequence[0] else return #err("Invalid DER format: expected version 1, got " # debug_show (keySequence[0]));
-                        // Second element is the private key as OCTET STRING
-                        let #octetString(privateKeyBytes) = keySequence[1] else return #err("Invalid DER format: expected private key as OCTET STRING");
-                        let #null_ = keySequence[2] else return #err("Invalid DER format: expected null");
-                        // Third element is the public key as BIT STRING
-                        let #bitString(_) = keySequence[3] else return #err("Invalid DER format: expected public key as BIT STRING");
-
-                        // TODO private key attributes?
-
-                        // Validate the key
-                        fromBytes(privateKeyBytes.vals(), #raw({ curve }));
+                        fromBytes(keyBytes.vals(), #sec1({ curve }));
                     };
                     case (#ok(_)) return #err("Invalid DER format: expected sequence");
                 };
@@ -207,6 +235,23 @@ module {
     };
 
     public func fromText(value : Text, format : InputTextFormat) : Result.Result<PrivateKey, Text> {
-        KeyCommon.fromText<PrivateKey>(value, format, fromBytes, true);
+        let (internalFormat, byteEncoding) = switch (format) {
+            case (#hex({ format; byteEncoding })) (#hex({ format }), byteEncoding);
+            case (#base64({ byteEncoding })) (#base64, byteEncoding);
+            case (#pem({ byteEncoding })) switch (byteEncoding) {
+                case (#pkcs8) (#pem({ keyType = "PRIVATE" }), #pkcs8);
+                case (#sec1({ curve })) (#pem({ keyType = "EC PRIVATE" }), #sec1({ curve }));
+            };
+        };
+        KeyCommon.fromText<PrivateKey>(
+            value,
+            internalFormat,
+            func(bytes : Iter.Iter<Nat8>) : Result.Result<PrivateKey, Text> {
+                switch (fromBytes(bytes, byteEncoding)) {
+                    case (#ok(key)) #ok(key);
+                    case (#err(e)) #err("Invalid key bytes: " # e);
+                };
+            },
+        );
     };
 };

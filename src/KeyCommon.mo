@@ -8,15 +8,13 @@ import Curve "Curve";
 
 module {
 
-    public type InputByteEncoding = {
-        #der;
+    public type CommonInputByteEncoding = {
         #raw : {
             curve : Curve.Curve;
         };
     };
 
-    public type OutputTextFormat<OutputByteEncoding> = {
-        #pem;
+    public type CommonOutputTextFormat<OutputByteEncoding> = {
         #base64 : {
             byteEncoding : OutputByteEncoding;
             isUriSafe : Bool;
@@ -27,19 +25,30 @@ module {
         };
     };
 
-    public type InputTextFormat = {
-        #pem;
+    public type CommonInputTextFormat<TInputTypeEncoding> = {
         #base64 : {
-            byteEncoding : InputByteEncoding;
+            byteEncoding : TInputTypeEncoding;
         };
         #hex : {
-            byteEncoding : InputByteEncoding;
+            byteEncoding : TInputTypeEncoding;
             format : BaseX.HexInputFormat;
         };
     };
 
+    type InternalInputTextFormat = {
+        #base64;
+        #hex : {
+            format : BaseX.HexInputFormat;
+        };
+        #pem : {
+            keyType : Text;
+        };
+    };
+
     type InternalOutputTextFormat = {
-        #pem;
+        #pem : {
+            keyType : Text;
+        };
         #base64 : {
             isUriSafe : Bool;
         };
@@ -52,12 +61,11 @@ module {
     public func toText(
         bytes : [Nat8],
         format : InternalOutputTextFormat,
-        isPrivate : Bool,
     ) : Text {
         switch (format) {
             case (#hex({ format })) BaseX.toHex(bytes.vals(), format);
             case (#base64({ isUriSafe })) BaseX.toBase64(bytes.vals(), isUriSafe);
-            case (#pem) {
+            case (#pem({ keyType })) {
                 let base64 = BaseX.toBase64(bytes.vals(), false);
 
                 let iter = PeekableIter.fromIter(base64.chars());
@@ -65,9 +73,8 @@ module {
                 while (iter.peek() != null) {
                     formatted #= "\n" # Text.fromIter(IterTools.take(iter, 64));
                 };
-                let (header, footer) = getPEMHeaderFooter(isPrivate);
 
-                header # "\n" # formatted # "\n" # footer;
+                "-----BEGIN " # keyType # " KEY-----\n" # formatted # "\n-----END " # keyType # " KEY-----";
             };
         };
     };
@@ -75,16 +82,15 @@ module {
     // Generic function to convert text to key bytes
     public func fromText<TKey>(
         value : Text,
-        format : InputTextFormat,
-        fromBytes : (Iter.Iter<Nat8>, InputByteEncoding) -> Result.Result<TKey, Text>,
-        isPrivate : Bool,
+        format : InternalInputTextFormat,
+        fromBytes : (Iter.Iter<Nat8>) -> Result.Result<TKey, Text>,
     ) : Result.Result<TKey, Text> {
         switch (format) {
-            case (#hex({ byteEncoding; format })) {
+            case (#hex({ format })) {
                 // Convert hex to bytes
                 switch (BaseX.fromHex(value, format)) {
                     case (#ok(bytes)) {
-                        switch (fromBytes(bytes.vals(), byteEncoding)) {
+                        switch (fromBytes(bytes.vals())) {
                             case (#ok(key)) #ok(key);
                             case (#err(e)) #err("Invalid key bytes: " # e);
                         };
@@ -93,11 +99,11 @@ module {
                 };
             };
 
-            case (#base64({ byteEncoding })) {
+            case (#base64()) {
                 // Convert base64 to bytes
                 switch (BaseX.fromBase64(value)) {
                     case (#ok(bytes)) {
-                        switch (fromBytes(bytes.vals(), byteEncoding)) {
+                        switch (fromBytes(bytes.vals())) {
                             case (#ok(key)) #ok(key);
                             case (#err(e)) #err("Invalid key bytes: " # e);
                         };
@@ -106,13 +112,13 @@ module {
                 };
             };
 
-            case (#pem) {
+            case (#pem({ keyType })) {
                 // Parse PEM format
-                switch (extractPEMContent(value, isPrivate)) {
+                switch (extractPEMContent(value, keyType)) {
                     case (#ok(base64Content)) {
                         switch (BaseX.fromBase64(base64Content)) {
                             case (#ok(bytes)) {
-                                switch (fromBytes(bytes.vals(), #der)) {
+                                switch (fromBytes(bytes.vals())) {
                                     case (#ok(key)) #ok(key);
                                     case (#err(e)) #err("Invalid key bytes: " # e);
                                 };
@@ -127,16 +133,12 @@ module {
     };
 
     // Helper function to extract content from PEM format for public keys
-    private func extractPEMContent(pem : Text, isPrivate : Bool) : Result.Result<Text, Text> {
-        let (header, footer) = getPEMHeaderFooter(isPrivate);
-        let ?headerTrimmedPem = Text.stripStart(pem, #text(header)) else return #err("Invalid PEM format: missing header");
-        let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text(footer)) else return #err("Invalid PEM format: missing footer");
+    private func extractPEMContent(pem : Text, keyType : Text) : Result.Result<Text, Text> {
+        let header = "-----BEGIN " # keyType # " KEY-----";
+        let ?headerTrimmedPem = Text.stripStart(pem, #text(header)) else return #err("Invalid PEM format: missing header " # header);
+        let footer = "-----END " # keyType # " KEY-----";
+        let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
         #ok(Text.join("", Text.split(trimmedPem, #char('\n'))));
     };
 
-    private func getPEMHeaderFooter(isPrivate : Bool) : (Text, Text) {
-        let header = if (isPrivate) "-----BEGIN PRIVATE KEY-----" else "-----BEGIN PUBLIC KEY-----";
-        let footer = if (isPrivate) "-----END PRIVATE KEY-----" else "-----END PUBLIC KEY-----";
-        (header, footer);
-    };
 };
