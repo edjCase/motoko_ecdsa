@@ -74,7 +74,7 @@ module {
                     formatted #= "\n" # Text.fromIter(IterTools.take(iter, 64));
                 };
 
-                "-----BEGIN " # keyType # " KEY-----\n" # formatted # "\n-----END " # keyType # " KEY-----";
+                "-----BEGIN " # keyType # " KEY-----\n" # formatted # "\n-----END " # keyType # " KEY-----\n";
             };
         };
     };
@@ -136,7 +136,7 @@ module {
     private func extractPEMContent(pem : Text, keyType : Text) : Result.Result<Text, Text> {
         let header = "-----BEGIN " # keyType # " KEY-----";
         let ?headerTrimmedPem = Text.stripStart(pem, #text(header)) else return #err("Invalid PEM format: missing header " # header);
-        let footer = "-----END " # keyType # " KEY-----";
+        let footer = "-----END " # keyType # " KEY-----\n";
         let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
         #ok(Text.join("", Text.split(trimmedPem, #char('\n'))));
     };

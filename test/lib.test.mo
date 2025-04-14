@@ -1054,7 +1054,7 @@ for (curveKind in curveKinds.vals()) {
             {
               format = #pem({ byteEncoding = #spki });
               inputFormat = ?#pem({ byteEncoding = #spki });
-              expectedText = "-----BEGIN PUBLIC KEY-----\nMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o908\n0wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==\n-----END PUBLIC KEY-----";
+              expectedText = "-----BEGIN PUBLIC KEY-----\nMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o908\n0wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==\n-----END PUBLIC KEY-----\n";
             },
             {
               format = #base64({
@@ -1148,7 +1148,7 @@ for (curveKind in curveKinds.vals()) {
             {
               format = #pem({ byteEncoding = #spki });
               inputFormat = ?#pem({ byteEncoding = #spki });
-              expectedText = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM+MCXRIl+3DFSLXyt6Uk3uEMB\nrrKoHFBY7c+I8TIKIRlick+jxMHkFq8cP514RndTPblo3Q2kdijQDwskog==\n-----END PUBLIC KEY-----";
+              expectedText = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEEjuM+MCXRIl+3DFSLXyt6Uk3uEMB\nrrKoHFBY7c+I8TIKIRlick+jxMHkFq8cP514RndTPblo3Q2kdijQDwskog==\n-----END PUBLIC KEY-----\n";
             },
             {
               format = #base64({
@@ -1215,6 +1215,22 @@ for (curveKind in curveKinds.vals()) {
                   isUpper = false;
                   prefix = #single("0x");
                 };
+                byteEncoding = #sec1;
+              });
+              inputFormat = ?#hex({
+                format = {
+                  prefix = #single("0x");
+                };
+                byteEncoding = #sec1({ curve });
+              });
+              expectedText = "0x30770201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2a00a06082a8648ce3d030107a144034200040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
+            },
+            {
+              format = #hex({
+                format = {
+                  isUpper = false;
+                  prefix = #single("0x");
+                };
                 byteEncoding = #pkcs8;
               });
               inputFormat = ?#hex({
@@ -1223,7 +1239,7 @@ for (curveKind in curveKinds.vals()) {
                 };
                 byteEncoding = #pkcs8;
               });
-              expectedText = "0x308184020100301006072a8648ce3d020106052b8104000a046d306b0201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da20500034200040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
+              expectedText = "0x308190020100301006072a8648ce3d020106052b8104000a047930770201010420b1aa6282b14e5ffbf6d12f783612f804e6a20d1a9734ffbb6c9923c670ee8da2a00a06082a8648ce3d030107a144034200040a09ff142d94bc3f56c5c81b75ea3b06b082c5263fbb5bd88c619fc6393dda3da53e0e930892cdb7799eea8fd45b9fff377d838f4106454289ae8a080b111f8d";
             },
             {
               format = #hex({
@@ -1265,7 +1281,7 @@ for (curveKind in curveKinds.vals()) {
               inputFormat = ?#base64({
                 byteEncoding = #sec1({ curve });
               });
-              expectedText = "MGsCAQEEILGqYoKxTl/79tEveDYS+ATmog0alzT/u2yZI8Zw7o2iBQADQgAECgn/FC2UvD9Wxcgbdeo7BrCCxSY/u1vYjGGfxjk92j2lPg6TCJLNt3me6o/UW5//N32Dj0EGRUKJrooICxEfjQ==";
+              expectedText = "MHcCAQEEILGqYoKxTl/79tEveDYS+ATmog0alzT/u2yZI8Zw7o2ioAoGCCqGSM49AwEHoUQDQgAECgn/FC2UvD9Wxcgbdeo7BrCCxSY/u1vYjGGfxjk92j2lPg6TCJLNt3me6o/UW5//N32Dj0EGRUKJrooICxEfjQ==";
             },
             {
               format = #base64({
@@ -1275,7 +1291,7 @@ for (curveKind in curveKinds.vals()) {
               inputFormat = ?#base64({
                 byteEncoding = #pkcs8;
               });
-              expectedText = "MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj-7W9iMYZ_GOT3aPaU-DpMIks23eZ7qj9Rbn_83fYOPQQZFQomuiggLER-N";
+              expectedText = "MIGQAgEAMBAGByqGSM49AgEGBSuBBAAKBHkwdwIBAQQgsapigrFOX_v20S94NhL4BOaiDRqXNP-7bJkjxnDujaKgCgYIKoZIzj0DAQehRANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj-7W9iMYZ_GOT3aPaU-DpMIks23eZ7qj9Rbn_83fYOPQQZFQomuiggLER-N";
             },
             {
               format = #pem({
@@ -1284,7 +1300,7 @@ for (curveKind in curveKinds.vals()) {
               inputFormat = ?#pem({
                 byteEncoding = #pkcs8;
               });
-              expectedText = "-----BEGIN PRIVATE KEY-----\nMIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgsapigrFOX/v20S94NhL4\nBOaiDRqXNP+7bJkjxnDujaIFAANCAAQKCf8ULZS8P1bFyBt16jsGsILFJj+7W9iM\nYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggLER+N\n-----END PRIVATE KEY-----";
+              expectedText = "-----BEGIN PRIVATE KEY-----\nMIGQAgEAMBAGByqGSM49AgEGBSuBBAAKBHkwdwIBAQQgsapigrFOX/v20S94NhL4\nBOaiDRqXNP+7bJkjxnDujaKgCgYIKoZIzj0DAQehRANCAAQKCf8ULZS8P1bFyBt1\n6jsGsILFJj+7W9iMYZ/GOT3aPaU+DpMIks23eZ7qj9Rbn/83fYOPQQZFQomuiggL\nER+N\n-----END PRIVATE KEY-----\n";
             },
             {
               format = #base64({

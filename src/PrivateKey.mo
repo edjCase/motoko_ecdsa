@@ -119,8 +119,19 @@ module {
                     let ecPrivateKey : ASN1.ASN1Value = #sequence([
                         #integer(1), // EC private key version
                         #octetString(privateKeyBytes),
-                        #null_,
-                        #bitString({ data = publicKeyBytes; unusedBits = 0 }),
+                        #contextSpecific({
+                            tagNumber = 0; // Curve
+                            value = ?#objectIdentifier([1, 2, 840, 10045, 3, 1, 7]); // prime256v1
+                            constructed = true;
+                        }),
+                        #contextSpecific({
+                            tagNumber = 1; // Public key
+                            value = ?#bitString({
+                                data = publicKeyBytes;
+                                unusedBits = 0;
+                            });
+                            constructed = true;
+                        }),
                     ]);
                     ASN1.encodeDER(ecPrivateKey);
                 };
@@ -186,16 +197,24 @@ module {
                     case (#ok(keyAsn1)) keyAsn1;
                 };
                 let #sequence(keySequence) = keyAsn1 else return #err("Invalid DER format: expected sequence for key bytes");
-                if (keySequence.size() != 4) return #err("Invalid DER format: expected key sequence with 4 elements, got " # debug_show (keySequence.size()));
+                if (keySequence.size() < 2) return #err("Invalid DER format: expected key sequence with 4 elements, got " # debug_show (keySequence.size()));
                 // First element is the version (should be 1)
                 let #integer(1) = keySequence[0] else return #err("Invalid DER format: expected version 1, got " # debug_show (keySequence[0]));
                 // Second element is the private key as OCTET STRING
                 let #octetString(privateKeyBytes) = keySequence[1] else return #err("Invalid DER format: expected private key as OCTET STRING");
-                let #null_ = keySequence[2] else return #err("Invalid DER format: expected null");
-                // Third element is the public key as BIT STRING
-                let #bitString(_) = keySequence[3] else return #err("Invalid DER format: expected public key as BIT STRING");
 
-                // TODO private key attributes?
+                if (keySequence.size() > 2) {
+                    let #contextSpecific(context) = keySequence[2] else return #err("Invalid DER format: expected context for public key or ECParameters, got " # debug_show (keySequence[2]));
+                    switch (context.tagNumber) {
+                        case (0) {
+                            // This is the public key, we can ignore it
+                        };
+                        case (1) {
+                            // This is the ECParameters, we can ignore it
+                        };
+                        case (_) return #err("Invalid DER format: expected context for public key or ECParameters, got " # debug_show (context));
+                    };
+                };
 
                 // Validate the key
                 fromBytes(privateKeyBytes.vals(), #raw({ curve }));
