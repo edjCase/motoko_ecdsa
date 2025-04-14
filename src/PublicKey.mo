@@ -64,7 +64,10 @@ module {
             msg : Iter.Iter<Nat8>,
             sig : Signature.Signature,
         ) : Bool {
-            let hashedMsg = Sha256.fromIter(#sha256, msg).vals();
+            let hashAlg = switch (curve.getBitSize()) {
+                case (#b256) #sha256;
+            };
+            let hashedMsg = Sha256.fromIter(hashAlg, msg).vals();
             verifyHashed(hashedMsg, sig);
         };
 
