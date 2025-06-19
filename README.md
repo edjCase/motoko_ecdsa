@@ -184,7 +184,7 @@ public type InputTextFormat = {
 
 // Output text formats for public keys
 public type PublicKeyOutputTextFormat = {
-  #base64 : { byteEncoding : PublicKeyOutputByteEncoding; isUriSafe : Bool };
+  #base64 : { byteEncoding : PublicKeyOutputByteEncoding; format : BaseX.Base64OutputFormat };
   #hex : { byteEncoding : PublicKeyOutputByteEncoding; format : BaseX.HexOutputFormat };
   #pem;  // For DER-encoded keys in PEM format
   #jwk;  // JSON Web Key format (PublicKey only)
@@ -192,14 +192,14 @@ public type PublicKeyOutputTextFormat = {
 
 // Output text formats for private keys
 public type PrivateKeyOutputTextFormat = {
-  #base64 : { byteEncoding : PrivateKeyOutputByteEncoding; isUriSafe : Bool };
+  #base64 : { byteEncoding : PrivateKeyOutputByteEncoding; format : BaseX.Base64OutputFormat };
   #hex : { byteEncoding : PrivateKeyOutputByteEncoding; format : BaseX.HexOutputFormat };
   #pem;  // For DER-encoded keys in PEM format
 };
 
 // Output text formats for signatures
 public type SignatureOutputTextFormat = {
-  #base64 : { byteEncoding : SignatureOutputByteEncoding; isUriSafe : Bool };
+  #base64 : { byteEncoding : SignatureOutputByteEncoding; format : BaseX.Base64OutputFormat };
   #hex : { byteEncoding : SignatureOutputByteEncoding; format : BaseX.HexOutputFormat };
 };
 ```

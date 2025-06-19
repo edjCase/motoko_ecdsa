@@ -17,7 +17,7 @@ module {
     public type CommonOutputTextFormat<OutputByteEncoding> = {
         #base64 : {
             byteEncoding : OutputByteEncoding;
-            isUriSafe : Bool;
+            format : BaseX.Base64OutputFormat;
         };
         #hex : {
             byteEncoding : OutputByteEncoding;
@@ -50,7 +50,7 @@ module {
             keyType : Text;
         };
         #base64 : {
-            isUriSafe : Bool;
+            format : BaseX.Base64OutputFormat;
         };
         #hex : {
             format : BaseX.HexOutputFormat;
@@ -64,9 +64,9 @@ module {
     ) : Text {
         switch (format) {
             case (#hex({ format })) BaseX.toHex(bytes.vals(), format);
-            case (#base64({ isUriSafe })) BaseX.toBase64(bytes.vals(), isUriSafe);
+            case (#base64({ format })) BaseX.toBase64(bytes.vals(), format);
             case (#pem({ keyType })) {
-                let base64 = BaseX.toBase64(bytes.vals(), false);
+                let base64 = BaseX.toBase64(bytes.vals(), #standard({ includePadding = true }));
 
                 let iter = PeekableIter.fromIter(base64.chars());
                 var formatted = Text.fromIter(IterTools.take(iter, 64));

@@ -1033,7 +1033,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = false;
+                format = #standard({ includePadding = true });
                 byteEncoding = #spki;
               });
               inputFormat = ?#base64({
@@ -1043,7 +1043,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #spki;
               });
               inputFormat = ?#base64({
@@ -1058,7 +1058,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #uncompressed;
               });
               inputFormat = ?#base64({
@@ -1127,7 +1127,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = false;
+                format = #standard({ includePadding = true });
                 byteEncoding = #spki;
               });
               inputFormat = ?#base64({
@@ -1137,7 +1137,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #spki;
               });
               inputFormat = ?#base64({
@@ -1152,7 +1152,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #uncompressed;
               });
               inputFormat = ?#base64({
@@ -1275,7 +1275,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = false;
+                format = #standard({ includePadding = true });
                 byteEncoding = #sec1;
               });
               inputFormat = ?#base64({
@@ -1285,7 +1285,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #pkcs8;
               });
               inputFormat = ?#base64({
@@ -1304,7 +1304,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #raw;
               });
               inputFormat = ?#base64({
@@ -1411,7 +1411,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = false;
+                format = #standard({ includePadding = true });
                 byteEncoding = #der;
               });
               inputFormat = ?#base64({
@@ -1421,7 +1421,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #der;
               });
               inputFormat = ?#base64({
@@ -1431,7 +1431,7 @@ for (curveKind in curveKinds.vals()) {
             },
             {
               format = #base64({
-                isUriSafe = true;
+                format = #url({ includePadding = false });
                 byteEncoding = #raw;
               });
               inputFormat = ?#base64({

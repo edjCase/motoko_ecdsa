@@ -119,8 +119,8 @@ module {
                     let yCoord = Array.tabulate<Nat8>(32, func(i) { bytes[i + 33] });
 
                     // Base64URL encode coordinates
-                    let xB64 = BaseX.toBase64(xCoord.vals(), true);
-                    let yB64 = BaseX.toBase64(yCoord.vals(), true);
+                    let xB64 = BaseX.toBase64(xCoord.vals(), #url({ includePadding = false }));
+                    let yB64 = BaseX.toBase64(yCoord.vals(), #url({ includePadding = false }));
 
                     // Get curve name
                     let curveName = switch (curve.kind) {
