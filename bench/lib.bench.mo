@@ -71,6 +71,14 @@ module {
       "signing_prime256v1",
       "verification_secp256k1",
       "verification_prime256v1",
+      "pointMul_arbitrary_secp256k1",
+      "pointMul_arbitrary_prime256v1",
+      "pointMul_generator_secp256k1",
+      "pointMul_generator_prime256v1",
+      "pointAdd_secp256k1",
+      "pointAdd_prime256v1",
+      "pointDouble_secp256k1",
+      "pointDouble_prime256v1",
       "publicKeyToBytes_compressed",
       "publicKeyToBytes_uncompressed",
       "publicKeyFromBytes_compressed",
@@ -118,6 +126,68 @@ module {
           case ("verification_prime256v1") func(_ : Nat) : Result.Result<Any, Text> {
             let isValid = prime256v1PublicKey.verify(messageData.vals(), prime256v1Signature);
             if (isValid) #ok else #err("Verification failed");
+          };
+          case ("pointMul_arbitrary_secp256k1") {
+            // Use a test point (public key point) and a test scalar
+            let testPoint = secp256k1Curve.toJacobi(#affine(secp256k1Curve.Fp.fromNat(secp256k1PublicKey.x), secp256k1Curve.Fp.fromNat(secp256k1PublicKey.y)));
+            let testScalar = secp256k1Curve.Fr.fromNat(0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0);
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore secp256k1Curve.mul(testPoint, testScalar);
+              #ok;
+            };
+          };
+          case ("pointMul_arbitrary_prime256v1") {
+            // Use a test point (public key point) and a test scalar
+            let testPoint = prime256v1Curve.toJacobi(#affine(prime256v1Curve.Fp.fromNat(prime256v1PublicKey.x), prime256v1Curve.Fp.fromNat(prime256v1PublicKey.y)));
+            let testScalar = prime256v1Curve.Fr.fromNat(0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0);
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore prime256v1Curve.mul(testPoint, testScalar);
+              #ok;
+            };
+          };
+          case ("pointMul_generator_secp256k1") {
+            let testScalar = secp256k1Curve.Fr.fromNat(0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0);
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore secp256k1Curve.mul_base(testScalar);
+              #ok;
+            };
+          };
+          case ("pointMul_generator_prime256v1") {
+            let testScalar = prime256v1Curve.Fr.fromNat(0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0);
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore prime256v1Curve.mul_base(testScalar);
+              #ok;
+            };
+          };
+          case ("pointAdd_secp256k1") {
+            let point1 = secp256k1Curve.toJacobi(#affine(secp256k1Curve.Fp.fromNat(secp256k1PublicKey.x), secp256k1Curve.Fp.fromNat(secp256k1PublicKey.y)));
+            let point2 = secp256k1Curve.G_;
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore secp256k1Curve.add(point1, point2);
+              #ok;
+            };
+          };
+          case ("pointAdd_prime256v1") {
+            let point1 = prime256v1Curve.toJacobi(#affine(prime256v1Curve.Fp.fromNat(prime256v1PublicKey.x), prime256v1Curve.Fp.fromNat(prime256v1PublicKey.y)));
+            let point2 = prime256v1Curve.G_;
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore prime256v1Curve.add(point1, point2);
+              #ok;
+            };
+          };
+          case ("pointDouble_secp256k1") {
+            let testPoint = secp256k1Curve.toJacobi(#affine(secp256k1Curve.Fp.fromNat(secp256k1PublicKey.x), secp256k1Curve.Fp.fromNat(secp256k1PublicKey.y)));
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore secp256k1Curve.dbl(testPoint);
+              #ok;
+            };
+          };
+          case ("pointDouble_prime256v1") {
+            let testPoint = prime256v1Curve.toJacobi(#affine(prime256v1Curve.Fp.fromNat(prime256v1PublicKey.x), prime256v1Curve.Fp.fromNat(prime256v1PublicKey.y)));
+            func(_ : Nat) : Result.Result<Any, Text> {
+              ignore prime256v1Curve.dbl(testPoint);
+              #ok;
+            };
           };
           case ("publicKeyToBytes_compressed") func(_ : Nat) : Result.Result<Any, Text> {
             ignore secp256k1PublicKey.toBytes(#compressed);

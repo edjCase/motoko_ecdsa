@@ -1,6 +1,6 @@
 [package]
 name = "ecdsa"
-version = "6.0.0"
+version = "6.0.1"
 description = "Library to sign and verify with ECDSA"
 repository = "https://github.com/edjCase/motoko_ecdsa"
 keywords = [
@@ -10,7 +10,8 @@ keywords = [
   "key",
   "public",
   "private",
-  "curve"
+  "curve",
+  "cryptography",
 ]
 license = "Apache-2.0"
 
