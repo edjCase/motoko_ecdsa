@@ -3,7 +3,15 @@ name = "ecdsa"
 version = "6.0.0"
 description = "Library to sign and verify with ECDSA"
 repository = "https://github.com/edjCase/motoko_ecdsa"
-keywords = ["ecdsa", "signature", "verify", "key", "public", "private", "curve"]
+keywords = [
+  "ecdsa",
+  "signature",
+  "verify",
+  "key",
+  "public",
+  "private",
+  "curve"
+]
 license = "Apache-2.0"
 
 [dependencies]
@@ -14,6 +22,7 @@ base-x-encoder = "1.1.0"
 
 [dev-dependencies]
 test = "2.1.1"
+bench = "1.0.0"
 
 [toolchain]
 moc = "0.14.10"
