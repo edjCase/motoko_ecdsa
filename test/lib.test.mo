@@ -3,21 +3,19 @@ import Field "../src/Field";
 import Curve "../src/Curve";
 import Binary "../src/Binary";
 import Util "../src/Util";
-import Nat "mo:base/Nat";
-import Int "mo:base/Int";
-import Blob "mo:base/Blob";
-import Iter "mo:base/Iter";
-import Nat8 "mo:base/Nat8";
-import P "mo:base/Prelude";
-import Debug "mo:base/Debug";
+import Nat "mo:core/Nat";
+import Int "mo:core/Int";
+import Blob "mo:core/Blob";
+import Iter "mo:core/Iter";
+import Nat8 "mo:core/Nat8";
 import { test; suite } "mo:test";
 import Sha256 "mo:sha2/Sha256";
-import Array "mo:new-base/Array";
-import Result "mo:new-base/Result";
+import Array "mo:core/Array";
+import Result "mo:core/Result";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
-import IterTools "mo:itertools/Iter";
+import Runtime "mo:core/Runtime";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
   Sha256.fromIter(#sha256, bytes);
@@ -458,15 +456,15 @@ for (curveKind in curveKinds.vals()) {
               case (#prime256v1) PublicKey.PublicKey(0x5eef7fbe25dab17a4f30c0e6e6501b40ad0e53a9a3193695b0b10099e8af59ea, 0x7d7aab6919a4346c45a54d89861a043bae3c5d3a6fba5ce32241d20396f7e430, curve);
             };
 
-            let #ok(privateKey) = PrivateKey.generate(secBytes.vals(), C) else P.unreachable();
+            let #ok(privateKey) = PrivateKey.generate(secBytes.vals(), C) else Runtime.unreachable();
 
             assert (privateKey.d == expectedSecKey);
 
             let publicKey = privateKey.getPublicKey();
             assert (publicKey.equal(expectedPK));
 
-            let #ok(sig) = privateKey.signHashed(hashed.vals(), randBytes.vals()) else P.unreachable();
-            let #ok(sig2) = privateKey.sign(hello.vals(), randBytes.vals()) else P.unreachable();
+            let #ok(sig) = privateKey.signHashed(hashed.vals(), randBytes.vals()) else Runtime.unreachable();
+            let #ok(sig2) = privateKey.sign(hello.vals(), randBytes.vals()) else Runtime.unreachable();
             assert (sig.equal(sig2));
 
             assert (publicKey.verify(hello.vals(), sig));
@@ -541,10 +539,10 @@ for (curveKind in curveKinds.vals()) {
 
           let check = func(actualPubKey : Result.Result<M.PublicKey, Text>, expectedPubKey : M.PublicKey) {
             switch (actualPubKey) {
-              case (#err(e)) Debug.trap("Unable to parse public key bytes: " # e);
+              case (#err(e)) Runtime.trap("Unable to parse public key bytes: " # e);
               case (#ok(actualPubKey)) {
                 if (not actualPubKey.equal(expectedPubKey)) {
-                  Debug.trap("Public key mismatch");
+                  Runtime.trap("Public key mismatch");
                 };
               };
             };
@@ -576,7 +574,7 @@ for (curveKind in curveKinds.vals()) {
           let derBytes = sig.toBytes(#der);
 
           assert (derBytes == expected);
-          let #ok(actualSig) = Signature.fromBytes(derBytes.vals(), curve, #der) else Debug.trap("Unable to parse signature der bytes");
+          let #ok(actualSig) = Signature.fromBytes(derBytes.vals(), curve, #der) else Runtime.trap("Unable to parse signature der bytes");
 
           assert (actualSig.equal(sig));
         },
@@ -805,7 +803,7 @@ for (curveKind in curveKinds.vals()) {
               let s = toNat(vTbl[j]);
               let der = tbl[i * n + j];
               switch (Signature.fromBytes(der.vals(), curve, #der)) {
-                case (#err(e)) Debug.trap("Failed to parse DER Signature: " # e);
+                case (#err(e)) Runtime.trap("Failed to parse DER Signature: " # e);
                 case (#ok(sig)) {
                   // Calculate expected r and s after normalization
                   let expectedR = r;
@@ -820,7 +818,7 @@ for (curveKind in curveKinds.vals()) {
                   };
 
                   if (#fr(sig.r) != expectedR or #fr(sig.s) != expectedS) {
-                    Debug.trap(
+                    Runtime.trap(
                       "Signature mismatch after normalization for i=" #
                       debug_show (i) # ",j=" # debug_show (j) # ": \nExpected\n" #
                       "r - " # debug_show (expectedR) # "\ns - " # debug_show (expectedS) #
@@ -831,7 +829,7 @@ for (curveKind in curveKinds.vals()) {
                   // Check if serialized DER matches the original
                   let actualDer = sig.toBytes(#der);
                   if (actualDer != der) {
-                    Debug.trap(
+                    Runtime.trap(
                       "DER serialization mismatch for i=" # debug_show (i) #
                       ",j=" # debug_show (j) # ": \nExpected DER\n" #
                       debug_show (der) # "\nActual DER\n" # debug_show (actualDer)
@@ -863,7 +861,7 @@ for (curveKind in curveKinds.vals()) {
           for (b in badTbl.vals()) {
             switch (Signature.fromBytes(b.vals(), curve, #der)) {
               case (#err(_)) ();
-              case (#ok(_)) Debug.trap("Failed to reject bad DER Signature: " # debug_show (b));
+              case (#ok(_)) Runtime.trap("Failed to reject bad DER Signature: " # debug_show (b));
             };
           };
           do {
@@ -871,11 +869,11 @@ for (curveKind in curveKinds.vals()) {
             let n = correct.size();
             var i = 0;
             while (i < n) {
-              let b = IterTools.take(correct.vals(), i);
+              let b = Iter.take(correct.vals(), i);
 
               switch (Signature.fromBytes(b, curve, #der)) {
                 case (#err(_)) ();
-                case (#ok(_)) Debug.trap("Failed to reject bad DER Signature: " # debug_show (i));
+                case (#ok(_)) Runtime.trap("Failed to reject bad DER Signature: " # debug_show (i));
               };
               i += 1;
             };
@@ -898,7 +896,7 @@ for (curveKind in curveKinds.vals()) {
       let rawBytes = Util.toBigEndianPad(32, privateKeyVal);
 
       // Test parsing from raw format
-      let #ok(parsedFromRaw) = PrivateKey.fromBytes(rawBytes.vals(), #raw({ curve })) else Debug.trap("Failed to parse raw bytes");
+      let #ok(parsedFromRaw) = PrivateKey.fromBytes(rawBytes.vals(), #raw({ curve })) else Runtime.trap("Failed to parse raw bytes");
       assert (parsedFromRaw.curve.kind == curve.kind);
       assert (parsedFromRaw.d == privateKeyVal);
       assert (parsedFromRaw.getPublicKey().equal(publicKey));
@@ -914,7 +912,7 @@ for (curveKind in curveKinds.vals()) {
           case (#err(_)) ();
           case (#ok(_)) {
             // If the key is not null, it should be a valid private key
-            Debug.trap("Expected #err key for '" # label_ # "', but got a valid key");
+            Runtime.trap("Expected #err key for '" # label_ # "', but got a valid key");
           };
         };
       };
@@ -955,11 +953,11 @@ for (curveKind in curveKinds.vals()) {
         );
       };
       switch (PublicKey.fromBytes(key.vals(), #spki)) {
-        case (#err(e)) Debug.trap("Failed to parse public key: " # debug_show (e));
+        case (#err(e)) Runtime.trap("Failed to parse public key: " # debug_show (e));
         case (#ok(publicKey)) {
           assert (publicKey.curve.kind == curveKind);
           if (publicKey.x != x or publicKey.y != y) {
-            Debug.trap("Public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (publicKey.x) # "\ny=" # debug_show (publicKey.y));
+            Runtime.trap("Public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (publicKey.x) # "\ny=" # debug_show (publicKey.y));
           };
         };
       };
@@ -1173,17 +1171,17 @@ for (curveKind in curveKinds.vals()) {
         for ({ format; inputFormat; expectedText } in outputs.vals()) {
           let actualText = key.toText(format);
           if (actualText != expectedText) {
-            Debug.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+            Runtime.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
           };
           switch (inputFormat) {
             case (null) ();
             case (?inputFormat) {
               switch (PublicKey.fromText(actualText, inputFormat)) {
-                case (#err(e)) Debug.trap("Failed to parse public key from text: " # debug_show (e) # "\nText: " # actualText);
+                case (#err(e)) Runtime.trap("Failed to parse public key from text: " # debug_show (e) # "\nText: " # actualText);
                 case (#ok(parsedKey)) {
                   assert (parsedKey.curve.kind == curve.kind);
                   if (parsedKey.x != x or parsedKey.y != y) {
-                    Debug.trap("Parsed public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (parsedKey.x) # "\ny=" # debug_show (parsedKey.y));
+                    Runtime.trap("Parsed public key mismatch:\nExpected\nx=" # debug_show (x) # "\ny=" # debug_show (y) # "\nActual\nx=" # debug_show (parsedKey.x) # "\ny=" # debug_show (parsedKey.y));
                   };
                 };
               };
@@ -1321,18 +1319,18 @@ for (curveKind in curveKinds.vals()) {
         for ({ format; inputFormat; expectedText } in outputs.vals()) {
           let actualText = key.toText(format);
           if (actualText != expectedText) {
-            Debug.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+            Runtime.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
           };
 
           switch (inputFormat) {
             case (null) ();
             case (?inputFormat) {
               switch (PrivateKey.fromText(actualText, inputFormat)) {
-                case (#err(e)) Debug.trap("Failed to parse public key from text: " # debug_show (e) # "\nText: " # actualText);
+                case (#err(e)) Runtime.trap("Failed to parse public key from text: " # debug_show (e) # "\nText: " # actualText);
                 case (#ok(parsedKey)) {
                   assert (parsedKey.curve.kind == curve.kind);
                   if (parsedKey.d != d) {
-                    Debug.trap("Parsed public key mismatch:\nText=" #actualText # "\nExpected\nd=" # debug_show (d) # "\nActual\nd=" # debug_show (parsedKey.d));
+                    Runtime.trap("Parsed public key mismatch:\nText=" #actualText # "\nExpected\nd=" # debug_show (d) # "\nActual\nd=" # debug_show (parsedKey.d));
                   };
                 };
               };
@@ -1449,18 +1447,18 @@ for (curveKind in curveKinds.vals()) {
         for ({ format; inputFormat; expectedText } in outputs.vals()) {
           let actualText = signature.toText(format);
           if (actualText != expectedText) {
-            Debug.trap("Signature text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
+            Runtime.trap("Signature text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
           };
 
           switch (inputFormat) {
             case (null) ();
             case (?inputFormat) {
               switch (Signature.fromText(actualText, curve, inputFormat)) {
-                case (#err(e)) Debug.trap("Failed to parse signature from text: " # debug_show (e) # "\nText: " # actualText);
+                case (#err(e)) Runtime.trap("Failed to parse signature from text: " # debug_show (e) # "\nText: " # actualText);
                 case (#ok(parsedSignature)) {
                   assert (parsedSignature.curve.kind == curve.kind);
                   if (parsedSignature.original_r != r or parsedSignature.original_s != s) {
-                    Debug.trap("Parsed signature mismatch:\nText=" #actualText # "\nExpected\nr=" # debug_show (r) # "\ns=" # debug_show (s) # "\nActual\nr=" # debug_show (parsedSignature.r) # "\ns=" # debug_show (parsedSignature.s));
+                    Runtime.trap("Parsed signature mismatch:\nText=" #actualText # "\nExpected\nr=" # debug_show (r) # "\ns=" # debug_show (s) # "\nActual\nr=" # debug_show (parsedSignature.r) # "\ns=" # debug_show (parsedSignature.s));
                   };
                 };
               };

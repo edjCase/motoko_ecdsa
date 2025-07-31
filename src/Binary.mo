@@ -1,19 +1,19 @@
-import Buffer "mo:base/Buffer";
+import List "mo:core/List";
 
 module {
   // 13 = 0b1101 => [true,false,true,true]
   public func fromNatReversed(x : Nat) : [Bool] {
-    var buf = Buffer.Buffer<Bool>(256);
+    var buf = List.empty<Bool>();
     var t = x;
     while (t > 0) {
-      buf.add((t % 2) == 1);
+      List.add(buf, (t % 2) == 1);
       t /= 2;
     };
-    Buffer.toArray(buf);
+    List.toArray(buf);
   };
   // getNAF
   public func toNafWidth(x_ : Int, _w : Int) : [Int] {
-    var naf = Buffer.Buffer<Int>(256);
+    var naf = List.empty<Int>();
     let w = 5;
     let signedMaxW : Int = 2 ** (w - 1);
     let maxW = signedMaxW * 2;
@@ -28,7 +28,7 @@ module {
       do {
         var i = 0;
         while (i < zeroNum) {
-          naf.add(0);
+          List.add(naf, 0);
           i += 1;
         };
       };
@@ -38,16 +38,16 @@ module {
         x += 1;
         v -= maxW;
       };
-      naf.add(v);
+      List.add(naf, v);
       zeroNum := w - 1;
     };
     if (negative) {
       var i = 0;
-      while (i < naf.size()) {
-        naf.put(i, -naf.get(i));
+      while (i < List.size(naf)) {
+        List.put(naf, i, -List.get(naf, i));
         i += 1;
       };
     };
-    Buffer.toArray(naf);
+    List.toArray(naf);
   };
 };

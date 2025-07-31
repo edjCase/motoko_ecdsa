@@ -1,13 +1,12 @@
 import Field "./Field";
 import Hex "./Hex";
 import Binary "./Binary";
-import Debug "mo:base/Debug";
-import Nat "mo:base/Nat";
-import Buffer "mo:base/Buffer";
-import Int "mo:base/Int";
-import Iter "mo:base/Iter";
+import Debug "mo:core/Debug";
+import Nat "mo:core/Nat";
+import Int "mo:core/Int";
+import Iter "mo:core/Iter";
 import Util "./Util";
-import IterTools "mo:itertools/Iter";
+import List "mo:core/List";
 
 module {
   public type FpElt = { #fp : Nat };
@@ -101,7 +100,7 @@ module {
     public func getExponent(
       rand : Iter.Iter<Nat8>
     ) : ?FrElt {
-      let ?nat = Util.toNatAsBigEndian(IterTools.take(rand, 32)) else return null;
+      let ?nat = Util.toNatAsBigEndian(Iter.take(rand, 32)) else return null;
       ?Fr.fromNat(nat);
     };
 
@@ -361,29 +360,29 @@ module {
       let naf0 = Binary.toNafWidth(u.0, w);
       let naf1 = Binary.toNafWidth(u.1, w);
       let maxBit = Nat.max(naf0.size(), naf1.size());
-      var tbl0 = Buffer.Buffer<Jacobi>(tblSize);
-      var tbl1 = Buffer.Buffer<Jacobi>(tblSize);
-      tbl0.add(x);
-      tbl1.add(mulLambda(x));
+      var tbl0 = List.empty<Jacobi>();
+      var tbl1 = List.empty<Jacobi>();
+      List.add(tbl0, x);
+      List.add(tbl1, mulLambda(x));
       do {
         let P2 = dbl(x);
         var j = 1;
         while (j < tblSize) {
-          tbl0.add(add(tbl0.get(j - 1), P2));
-          tbl1.add(mulLambda(tbl0.get(j)));
+          List.add(tbl0, add(List.get(tbl0, j - 1 : Nat), P2));
+          List.add(tbl1, mulLambda(List.get(tbl0, j)));
           j += 1;
         };
       };
       var z = zeroJ;
-      let addTbl = func(tbl : Buffer.Buffer<Jacobi>, naf : [Int], i : Nat) {
+      let addTbl = func(tbl : List.List<Jacobi>, naf : [Int], i : Nat) {
         if (i >= naf.size()) return;
         let n = naf[i];
         if (n > 0) {
           let idx = Int.abs(n - 1) / 2;
-          z := add(z, tbl.get(idx));
+          z := add(z, List.get(tbl, idx));
         } else if (n < 0) {
           let idx = Int.abs(-n - 1) / 2;
-          z := add(z, neg(tbl.get(idx)));
+          z := add(z, neg(List.get(tbl, idx)));
         };
       };
       do {

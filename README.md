@@ -28,7 +28,7 @@ To set up the MOPS package manager, follow the instructions from the
 
 ```motoko
 import ECDSA "mo:ecdsa";
-import Iter "mo:base/Iter";
+import Iter "mo:core/Iter";
 
 // Generate entropy (in a real application, use a secure random source)
 let entropy : [Nat8] = [/* 32 bytes of secure random data */];
