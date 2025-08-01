@@ -93,7 +93,7 @@ module {
       "signatureFromText_hex",
     ]);
 
-    bench.cols(["1", "10", "100"]);
+    bench.cols(["1", "10"]);
 
     bench.runner(
       func(row, col) {
