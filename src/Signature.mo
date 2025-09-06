@@ -1,15 +1,15 @@
 import Curve "./Curve";
-import Nat8 "mo:core/Nat8";
+import Nat8 "mo:core@1/Nat8";
 import Util "Util";
-import ASN1 "mo:asn1";
-import Int "mo:core/Int";
-import Iter "mo:core/Iter";
-import Result "mo:core/Result";
-import Nat "mo:core/Nat";
-import BaseX "mo:base-x-encoder";
-import NatX "mo:xtended-numbers/NatX";
-import List "mo:core/List";
-import Buffer "mo:buffer";
+import ASN1 "mo:asn1@3";
+import Int "mo:core@1/Int";
+import Iter "mo:core@1/Iter";
+import Result "mo:core@1/Result";
+import Nat "mo:core@1/Nat";
+import BaseX "mo:base-x-encoder@2";
+import NatX "mo:xtended-numbers@2/NatX";
+import List "mo:core@1/List";
+import Buffer "mo:buffer@0";
 
 module {
   public type InputByteEncoding = {

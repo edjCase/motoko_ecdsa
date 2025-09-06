@@ -1,4 +1,4 @@
-import List "mo:core/List";
+import List "mo:core@1/List";
 
 module {
   // 13 = 0b1101 => [true,false,true,true]
@@ -44,7 +44,7 @@ module {
     if (negative) {
       var i = 0;
       while (i < List.size(naf)) {
-        List.put(naf, i, -List.get(naf, i));
+        List.put(naf, i, -List.at(naf, i));
         i += 1;
       };
     };

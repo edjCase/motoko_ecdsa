@@ -3,19 +3,19 @@ import Field "../src/Field";
 import Curve "../src/Curve";
 import Binary "../src/Binary";
 import Util "../src/Util";
-import Nat "mo:core/Nat";
-import Int "mo:core/Int";
-import Blob "mo:core/Blob";
-import Iter "mo:core/Iter";
-import Nat8 "mo:core/Nat8";
+import Nat "mo:core@1/Nat";
+import Int "mo:core@1/Int";
+import Blob "mo:core@1/Blob";
+import Iter "mo:core@1/Iter";
+import Nat8 "mo:core@1/Nat8";
 import { test; suite } "mo:test";
-import Sha256 "mo:sha2/Sha256";
-import Array "mo:core/Array";
-import Result "mo:core/Result";
+import Sha256 "mo:sha2@0/Sha256";
+import Array "mo:core@1/Array";
+import Result "mo:core@1/Result";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
-import Runtime "mo:core/Runtime";
+import Runtime "mo:core@1/Runtime";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
   Sha256.fromIter(#sha256, bytes);

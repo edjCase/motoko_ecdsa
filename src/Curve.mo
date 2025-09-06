@@ -1,12 +1,12 @@
 import Field "./Field";
 import Hex "./Hex";
 import Binary "./Binary";
-import Debug "mo:core/Debug";
-import Nat "mo:core/Nat";
-import Int "mo:core/Int";
-import Iter "mo:core/Iter";
+import Debug "mo:core@1/Debug";
+import Nat "mo:core@1/Nat";
+import Int "mo:core@1/Int";
+import Iter "mo:core@1/Iter";
 import Util "./Util";
-import List "mo:core/List";
+import List "mo:core@1/List";
 
 module {
   public type FpElt = { #fp : Nat };
@@ -368,8 +368,8 @@ module {
         let P2 = dbl(x);
         var j = 1;
         while (j < tblSize) {
-          List.add(tbl0, add(List.get(tbl0, j - 1 : Nat), P2));
-          List.add(tbl1, mulLambda(List.get(tbl0, j)));
+          List.add(tbl0, add(List.at(tbl0, j - 1 : Nat), P2));
+          List.add(tbl1, mulLambda(List.at(tbl0, j)));
           j += 1;
         };
       };
@@ -379,10 +379,10 @@ module {
         let n = naf[i];
         if (n > 0) {
           let idx = Int.abs(n - 1) / 2;
-          z := add(z, List.get(tbl, idx));
+          z := add(z, List.at(tbl, idx));
         } else if (n < 0) {
           let idx = Int.abs(-n - 1) / 2;
-          z := add(z, neg(List.get(tbl, idx)));
+          z := add(z, neg(List.at(tbl, idx)));
         };
       };
       do {

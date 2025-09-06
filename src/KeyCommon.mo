@@ -1,8 +1,8 @@
-import BaseX "mo:base-x-encoder";
-import Text "mo:core/Text";
-import Result "mo:core/Result";
-import Iter "mo:core/Iter";
-import PeekableIter "mo:xtended-iter/PeekableIter";
+import BaseX "mo:base-x-encoder@2";
+import Text "mo:core@1/Text";
+import Result "mo:core@1/Result";
+import Iter "mo:core@1/Iter";
+import PeekableIter "mo:xtended-iter@1/PeekableIter";
 import Curve "Curve";
 
 module {

@@ -1,16 +1,16 @@
 import Curve "./Curve";
-import Iter "mo:core/Iter";
-import Array "mo:core/Array";
-import Sha256 "mo:sha2/Sha256";
+import Iter "mo:core@1/Iter";
+import Array "mo:core@1/Array";
+import Sha256 "mo:sha2@0/Sha256";
 import Signature "./Signature";
 import Util "./Util";
-import ASN1 "mo:asn1";
-import Nat "mo:core/Nat";
-import Nat8 "mo:core/Nat8";
-import Text "mo:core/Text";
-import Result "mo:core/Result";
+import ASN1 "mo:asn1@3";
+import Nat "mo:core@1/Nat";
+import Nat8 "mo:core@1/Nat8";
+import Text "mo:core@1/Text";
+import Result "mo:core@1/Result";
 import KeyCommon "KeyCommon";
-import BaseX "mo:base-x-encoder";
+import BaseX "mo:base-x-encoder@2";
 
 module {
 
