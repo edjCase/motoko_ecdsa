@@ -268,7 +268,7 @@ module {
           case (#ok(keyAsn1)) keyAsn1;
         };
         let #sequence(keySequence) = keyAsn1 else return #err("Invalid DER format: expected sequence for key bytes");
-        if (keySequence.size() < 2) return #err("Invalid DER format: expected key sequence with 4 elements, got " # debug_show (keySequence.size()));
+        if (keySequence.size() < 2) return #err("Invalid DER format: expected key sequence with at least 2 elements, got " # debug_show (keySequence.size()));
         // First element is the version (should be 1)
         let #integer(1) = keySequence[0] else return #err("Invalid DER format: expected version 1, got " # debug_show (keySequence[0]));
         // Second element is the private key as OCTET STRING
