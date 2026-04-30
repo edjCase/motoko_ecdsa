@@ -164,11 +164,13 @@ module {
     switch (encoding) {
       case (#raw) {
         // Extract r and s values
-        let rBytes = bytes.take(32);
-
-        let ?r = Util.toNatAsBigEndian(rBytes) else return #err("Invalid signature: failed to decode r from bytes");
-        let sBytes = bytes.take(32);
-        let ?s = Util.toNatAsBigEndian(sBytes) else return #err("Invalid signature: failed to decode s from bytes");
+        let raw = Iter.toArray(bytes);
+        if (raw.size() != 64) {
+          return #err("Invalid signature: expected exactly 64 bytes for raw encoding");
+        };
+        let rawIter = raw.vals();
+        let ?r = Util.toNatAsBigEndian(rawIter.take(32)) else return #err("Invalid signature: failed to decode r from bytes");
+        let ?s = Util.toNatAsBigEndian(rawIter.take(32)) else return #err("Invalid signature: failed to decode s from bytes");
 
         #ok(Signature(r, s, curve));
       };
