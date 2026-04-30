@@ -1,4 +1,4 @@
-import List "mo:core@1/List";
+import List "mo:core@2/List";
 
 module {
   // 13 = 0b1101 => [true,false,true,true]

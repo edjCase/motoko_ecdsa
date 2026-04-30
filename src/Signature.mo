@@ -1,14 +1,14 @@
 import Curve "./Curve";
-import Nat8 "mo:core@1/Nat8";
+import Nat8 "mo:core@2/Nat8";
 import Util "Util";
 import ASN1 "mo:asn1@3";
-import Int "mo:core@1/Int";
-import Iter "mo:core@1/Iter";
-import Result "mo:core@1/Result";
-import Nat "mo:core@1/Nat";
+import Int "mo:core@2/Int";
+import Iter "mo:core@2/Iter";
+import Result "mo:core@2/Result";
+import Nat "mo:core@2/Nat";
 import BaseX "mo:base-x-encoder@2";
 import NatX "mo:xtended-numbers@2/NatX";
-import List "mo:core@1/List";
+import List "mo:core@2/List";
 import Buffer "mo:buffer@0";
 
 module {

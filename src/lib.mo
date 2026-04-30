@@ -2,8 +2,8 @@ import CurveModule "./Curve";
 import PublicKeyModule "PublicKey";
 import PrivateKeyModule "PrivateKey";
 import SignatureModule "Signature";
-import Iter "mo:core@1/Iter";
-import Result "mo:core@1/Result";
+import Iter "mo:core@2/Iter";
+import Result "mo:core@2/Result";
 
 module {
 

@@ -1,8 +1,8 @@
-import Nat8 "mo:core@1/Nat8";
+import Nat8 "mo:core@2/Nat8";
 import Buffer "mo:buffer@0";
 import NatX "mo:xtended-numbers@2/NatX";
-import Iter "mo:core@1/Iter";
-import List "mo:core@1/List";
+import Iter "mo:core@2/Iter";
+import List "mo:core@2/List";
 
 module {
   // [0x12, 0x34] : [Nat] => 0x1234

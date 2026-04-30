@@ -1,7 +1,7 @@
 import BaseX "mo:base-x-encoder@2";
-import Text "mo:core@1/Text";
-import Result "mo:core@1/Result";
-import Iter "mo:core@1/Iter";
+import Text "mo:core@2/Text";
+import Result "mo:core@2/Result";
+import Iter "mo:core@2/Iter";
 import PeekableIter "mo:xtended-iter@1/PeekableIter";
 import Curve "Curve";
 
@@ -137,7 +137,7 @@ module {
     let ?headerTrimmedPem = Text.stripStart(pem, #text(header)) else return #err("Invalid PEM format: missing header " # header);
     let footer = "-----END " # keyType # " KEY-----\n";
     let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
-    #ok(Text.join("", Text.split(trimmedPem, #char('\n'))));
+    #ok(Text.join(Text.split(trimmedPem, #char('\n')), ""));
   };
 
 };

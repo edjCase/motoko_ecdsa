@@ -1,14 +1,14 @@
 import Curve "./Curve";
 import PublicKey "./PublicKey";
 import Signature "./Signature";
-import Iter "mo:core@1/Iter";
-import Nat8 "mo:core@1/Nat8";
+import Iter "mo:core@2/Iter";
+import Nat8 "mo:core@2/Nat8";
 import Sha256 "mo:sha2@0/Sha256";
 import Util "Util";
 import ASN1 "mo:asn1@3";
-import Text "mo:core@1/Text";
-import Result "mo:core@1/Result";
-import Runtime "mo:core@1/Runtime";
+import Text "mo:core@2/Text";
+import Result "mo:core@2/Result";
+import Runtime "mo:core@2/Runtime";
 import KeyCommon "KeyCommon";
 
 module {

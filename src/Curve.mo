@@ -1,12 +1,12 @@
 import Field "./Field";
 import Hex "./Hex";
 import Binary "./Binary";
-import Debug "mo:core@1/Debug";
-import Nat "mo:core@1/Nat";
-import Int "mo:core@1/Int";
-import Iter "mo:core@1/Iter";
+import Debug "mo:core@2/Debug";
+import Nat "mo:core@2/Nat";
+import Int "mo:core@2/Int";
+import Iter "mo:core@2/Iter";
 import Util "./Util";
-import List "mo:core@1/List";
+import List "mo:core@2/List";
 
 module {
   public type FpElt = { #fp : Nat };

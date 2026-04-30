@@ -1,6 +1,6 @@
 import IntExt "./IntExt";
 import Binary "./Binary";
-import Int "mo:core@1/Int";
+import Int "mo:core@2/Int";
 
 module {
   public func inv_(x : Nat, n : Nat) : Nat {

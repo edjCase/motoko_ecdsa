@@ -1,14 +1,14 @@
 import Curve "./Curve";
-import Iter "mo:core@1/Iter";
-import Array "mo:core@1/Array";
+import Iter "mo:core@2/Iter";
+import Array "mo:core@2/Array";
 import Sha256 "mo:sha2@0/Sha256";
 import Signature "./Signature";
 import Util "./Util";
 import ASN1 "mo:asn1@3";
-import Nat "mo:core@1/Nat";
-import Nat8 "mo:core@1/Nat8";
-import Text "mo:core@1/Text";
-import Result "mo:core@1/Result";
+import Nat "mo:core@2/Nat";
+import Nat8 "mo:core@2/Nat8";
+import Text "mo:core@2/Text";
+import Result "mo:core@2/Result";
 import KeyCommon "KeyCommon";
 import BaseX "mo:base-x-encoder@2";
 
