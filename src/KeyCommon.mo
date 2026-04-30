@@ -156,9 +156,14 @@ module {
   private func extractPEMContent(pem : Text, keyType : Text) : Result.Result<Text, Text> {
     let header = "-----BEGIN " # keyType # " KEY-----";
     let ?headerTrimmedPem = pem.stripStart(#text(header)) else return #err("Invalid PEM format: missing header " # header);
-    let footer = "-----END " # keyType # " KEY-----\n";
-    let ?trimmedPem = headerTrimmedPem.stripEnd(#text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
-    #ok(trimmedPem.split(#char('\n')).join(""));
+    let footer = "-----END " # keyType # " KEY-----";
+    // Normalize line endings (strip CRs) and any trailing newlines so the
+    // footer match works whether the input uses LF or CRLF and whether or
+    // not it has a trailing newline after the footer.
+    let withoutCRs = Text.replace(headerTrimmedPem, #char('\r'), "");
+    let withoutTrailingNewlines = Text.trimEnd(withoutCRs, #char('\n'));
+    let ?trimmedPem = withoutTrailingNewlines.stripEnd(#text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
+    #ok(Text.replace(trimmedPem, #char('\n'), ""));
   };
 
 };

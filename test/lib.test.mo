@@ -1471,3 +1471,39 @@ for (curveKind in curveKinds.vals()) {
     },
   );
 };
+
+test(
+  "publicKeyFromPemFooterVariations",
+  func() {
+    let x = 38_429_425_455_415_631_134_142_539_000_605_002_670_886_210_329_907_085_845_074_048_940_350_736_307_511;
+    let y = 575_828_099_184_175_788_894_911_350_722_390_938_371_747_048_717_700_577_109_830_429_869_990_220_126;
+    let curve = Curve.Curve(#secp256k1);
+    let inputFormat : PublicKey.InputTextFormat = #pem({ byteEncoding = #spki });
+
+    let line1 = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o908";
+    let line2 = "0wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==";
+    let header = "-----BEGIN PUBLIC KEY-----";
+    let footer = "-----END PUBLIC KEY-----";
+
+    let variants : [(Text, Text)] = [
+      ("LF_with_trailing_newline", header # "\n" # line1 # "\n" # line2 # "\n" # footer # "\n"),
+      ("LF without trailing newline", header # "\n" # line1 # "\n" # line2 # "\n" # footer),
+      ("CRLF with trailing newline", header # "\r\n" # line1 # "\r\n" # line2 # "\r\n" # footer # "\r\n"),
+      ("CRLF without trailing newline", header # "\r\n" # line1 # "\r\n" # line2 # "\r\n" # footer),
+      ("LF with trailing CRLF", header # "\n" # line1 # "\n" # line2 # "\n" # footer # "\r\n"),
+    ];
+
+    for ((name, pem) in variants.vals()) {
+      switch (PublicKey.fromText(pem, inputFormat)) {
+        case (#err(e)) Runtime.trap("Failed to parse PEM variant '" # name # "': " # e);
+        case (#ok(parsedKey)) {
+          assert (parsedKey.curve.kind == curve.kind);
+          if (parsedKey.x != x or parsedKey.y != y) {
+            Runtime.trap("Parsed key mismatch for variant '" # name # "'");
+          };
+        };
+      };
+    };
+  },
+);
+
