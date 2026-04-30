@@ -16,18 +16,17 @@ keywords = [
 license = "Apache-2.0"
 
 [dependencies]
-"sha2@0" = "0.1.6"
+"sha2@0" = "0.1.14"
 "asn1@3" = "3.1.0"
-"xtended-numbers@2" = "2.1.0"
+"xtended-numbers@2" = "2.3.0"
 "base-x-encoder@2" = "2.1.0"
 "core@2" = "2.5.0"
 "buffer@0" = "0.1.0"
 "xtended-iter@1" = "1.1.0"
 
 [dev-dependencies]
-core = "2.5.0"
 test = "2.1.1"
-bench = "1.0.0"
+bench = "2.0.1"
 
 [toolchain]
 moc = "1.7.0"
