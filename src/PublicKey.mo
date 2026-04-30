@@ -1,16 +1,18 @@
-import Curve "./Curve";
-import Iter "mo:core@2/Iter";
 import Array "mo:core@2/Array";
-import Sha256 "mo:sha2@0/Sha256";
-import Signature "./Signature";
-import Util "./Util";
-import ASN1 "mo:asn1@3";
+import Iter "mo:core@2/Iter";
 import Nat "mo:core@2/Nat";
 import Nat8 "mo:core@2/Nat8";
-import Text "mo:core@2/Text";
 import Result "mo:core@2/Result";
-import KeyCommon "KeyCommon";
+import Text "mo:core@2/Text";
+
+import ASN1 "mo:asn1@3";
 import BaseX "mo:base-x-encoder@2";
+import Sha256 "mo:sha2@0/Sha256";
+
+import Curve "./Curve";
+import Signature "./Signature";
+import Util "./Util";
+import KeyCommon "KeyCommon";
 
 module {
 
@@ -56,7 +58,7 @@ module {
     public let curve = curve_;
 
     public func equal(other : PublicKey) : Bool {
-      return curve.kind == curve.kind and curve.isEqual((#fp(x), #fp(y), #fp(1)), (#fp(other.x), #fp(other.y), #fp(1)));
+      curve.kind == curve.kind and curve.isEqual((#fp(x), #fp(y), #fp(1)), (#fp(other.x), #fp(other.y), #fp(1)));
     };
 
     public func verify(
@@ -212,15 +214,15 @@ module {
           case (?0x04) {
             // Uncompressed key
             let n = 32;
-            let ?x = Util.toNatAsBigEndian(Iter.take(bytes, n)) else return #err("Unable to parse x coordinate");
-            let ?y = Util.toNatAsBigEndian(Iter.take(bytes, n)) else return #err("Unsable to parse y coordinate");
+            let ?x = Util.toNatAsBigEndian(bytes.take(n)) else return #err("Unable to parse x coordinate");
+            let ?y = Util.toNatAsBigEndian(bytes.take(n)) else return #err("Unsable to parse y coordinate");
             if (x >= curve.params.p) return #err("Invalid x coordinate, out of range");
             if (y >= curve.params.p) return #err("Invalid y coordinate, out of range");
             let pub = (#fp(x), #fp(y));
             if (not curve.isValidAffine(pub)) return #err("Invalid x and y points, not on curve");
             return #ok(PublicKey(x, y, curve));
           };
-          case (?prefix) return #err("Invalid key prefix: " # Nat8.toText(prefix));
+          case (?prefix) return #err("Invalid key prefix: " # prefix.toText());
           case (null) return #err("Not enough bytes for key");
         };
         // Compressed key

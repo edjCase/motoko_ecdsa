@@ -1,15 +1,17 @@
-import Curve "./Curve";
-import Nat8 "mo:core@2/Nat8";
-import Util "Util";
-import ASN1 "mo:asn1@3";
 import Int "mo:core@2/Int";
 import Iter "mo:core@2/Iter";
-import Result "mo:core@2/Result";
-import Nat "mo:core@2/Nat";
-import BaseX "mo:base-x-encoder@2";
-import NatX "mo:xtended-numbers@2/NatX";
 import List "mo:core@2/List";
+import Nat "mo:core@2/Nat";
+import Nat8 "mo:core@2/Nat8";
+import Result "mo:core@2/Result";
+
+import ASN1 "mo:asn1@3";
+import BaseX "mo:base-x-encoder@2";
 import Buffer "mo:buffer@0";
+import NatX "mo:xtended-numbers@2/NatX";
+
+import Curve "./Curve";
+import Util "Util";
 
 module {
   public type InputByteEncoding = {
@@ -58,7 +60,7 @@ module {
     };
 
     public func equal(other : Signature) : Bool {
-      return curve.equal(other.curve) and r == other.r and s == other.s;
+      curve.equal(other.curve) and r == other.r and s == other.s;
     };
 
     public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
@@ -72,14 +74,14 @@ module {
           let encodeAndPad = func(value : Nat) {
             let natBuffer = List.empty<Nat8>();
             NatX.toNatBytesBuffer(Buffer.fromList(natBuffer), value, #msb);
-            let padding : Nat = size - List.size(natBuffer);
+            let padding : Nat = size - natBuffer.size();
             // Left-pad with zeros if needed
             if (padding > 0) {
               for (i in Nat.range(0, padding)) {
-                List.add<Nat8>(buf, 0);
+                buf.add(0 : Nat8);
               };
             };
-            List.addAll(buf, List.values(natBuffer));
+            buf.addAll(natBuffer.values());
           };
 
           // Encode r
@@ -87,7 +89,7 @@ module {
           // Encode s
           encodeAndPad(original_s);
 
-          List.toArray(buf);
+          buf.toArray();
         };
         case (#der) {
           let asn1Value : ASN1.ASN1Value = #sequence([#integer(original_r), #integer(original_s)]);
@@ -114,10 +116,10 @@ module {
     switch (encoding) {
       case (#raw) {
         // Extract r and s values
-        let rBytes = Iter.take(bytes, 32);
+        let rBytes = bytes.take(32);
 
         let ?r = Util.toNatAsBigEndian(rBytes) else return #err("Invalid signature: failed to decode r from bytes");
-        let sBytes = Iter.take(bytes, 32);
+        let sBytes = bytes.take(32);
         let ?s = Util.toNatAsBigEndian(sBytes) else return #err("Invalid signature: failed to decode s from bytes");
 
         #ok(Signature(r, s, curve));

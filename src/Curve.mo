@@ -1,12 +1,13 @@
-import Field "./Field";
-import Hex "./Hex";
-import Binary "./Binary";
 import Debug "mo:core@2/Debug";
-import Nat "mo:core@2/Nat";
 import Int "mo:core@2/Int";
 import Iter "mo:core@2/Iter";
-import Util "./Util";
 import List "mo:core@2/List";
+import Nat "mo:core@2/Nat";
+
+import Binary "./Binary";
+import Field "./Field";
+import Hex "./Hex";
+import Util "./Util";
 
 module {
   public type FpElt = { #fp : Nat };
@@ -100,7 +101,7 @@ module {
     public func getExponent(
       rand : Iter.Iter<Nat8>
     ) : ?FrElt {
-      let ?nat = Util.toNatAsBigEndian(Iter.take(rand, 32)) else return null;
+      let ?nat = Util.toNatAsBigEndian(rand.take(32)) else return null;
       ?Fr.fromNat(nat);
     };
 
@@ -362,14 +363,14 @@ module {
       let maxBit = Nat.max(naf0.size(), naf1.size());
       var tbl0 = List.empty<Jacobi>();
       var tbl1 = List.empty<Jacobi>();
-      List.add(tbl0, x);
-      List.add(tbl1, mulLambda(x));
+      tbl0.add(x);
+      tbl1.add(mulLambda(x));
       do {
         let P2 = dbl(x);
         var j = 1;
         while (j < tblSize) {
-          List.add(tbl0, add(List.at(tbl0, j - 1 : Nat), P2));
-          List.add(tbl1, mulLambda(List.at(tbl0, j)));
+          tbl0.add(add(tbl0.at(j - 1 : Nat), P2));
+          tbl1.add(mulLambda(tbl0.at(j)));
           j += 1;
         };
       };
@@ -379,10 +380,10 @@ module {
         let n = naf[i];
         if (n > 0) {
           let idx = Int.abs(n - 1) / 2;
-          z := add(z, List.at(tbl, idx));
+          z := add(z, tbl.at(idx));
         } else if (n < 0) {
           let idx = Int.abs(-n - 1) / 2;
-          z := add(z, neg(List.at(tbl, idx)));
+          z := add(z, neg(tbl.at(idx)));
         };
       };
       do {

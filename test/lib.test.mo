@@ -1,21 +1,23 @@
-import M "../src";
-import Field "../src/Field";
-import Curve "../src/Curve";
-import Binary "../src/Binary";
-import Util "../src/Util";
-import Nat "mo:core@2/Nat";
-import Int "mo:core@2/Int";
-import Blob "mo:core@2/Blob";
-import Iter "mo:core@2/Iter";
-import Nat8 "mo:core@2/Nat8";
-import { test; suite } "mo:test";
-import Sha256 "mo:sha2@0/Sha256";
 import Array "mo:core@2/Array";
+import Blob "mo:core@2/Blob";
+import Int "mo:core@2/Int";
+import Iter "mo:core@2/Iter";
+import Nat "mo:core@2/Nat";
+import Nat8 "mo:core@2/Nat8";
 import Result "mo:core@2/Result";
+import Runtime "mo:core@2/Runtime";
+
+import Sha256 "mo:sha2@0/Sha256";
+import { test; suite } "mo:test";
+
+import M "../src";
+import Binary "../src/Binary";
+import Curve "../src/Curve";
+import Field "../src/Field";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
-import Runtime "mo:core@2/Runtime";
+import Util "../src/Util";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
   Sha256.fromIter(#sha256, bytes);
@@ -444,7 +446,7 @@ for (curveKind in curveKinds.vals()) {
           let hello : [Nat8] = [0x68, 0x65, 0x6c, 0x6c, 0x6f];
           // sha256('hello')
           let hashed : [Nat8] = [0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24];
-          assert (Blob.toArray(sha2(hello.vals())) == hashed);
+          assert (sha2(hello.vals()).toArray() == hashed);
 
           let secBytes : [Nat8] = [0x83, 0xec, 0xb3, 0x98, 0x4a, 0x4f, 0x9f, 0xf0, 0x3e, 0x84, 0xd5, 0xf9, 0xc0, 0xd7, 0xf8, 0x88, 0xa8, 0x18, 0x33, 0x64, 0x30, 0x47, 0xac, 0xc5, 0x8e, 0xb6, 0x43, 0x1e, 0x01, 0xd9, 0xba, 0xc8];
           let expectedSecKey = 0x83ecb3984a4f9ff03e84d5f9c0d7f888a81833643047acc58eb6431e01d9bac8;
@@ -869,7 +871,7 @@ for (curveKind in curveKinds.vals()) {
             let n = correct.size();
             var i = 0;
             while (i < n) {
-              let b = Iter.take(correct.vals(), i);
+              let b = correct.vals().take(i);
 
               switch (Signature.fromBytes(b, curve, #der)) {
                 case (#err(_)) ();

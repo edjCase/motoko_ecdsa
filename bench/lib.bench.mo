@@ -1,8 +1,10 @@
-import Bench "mo:bench";
+import Blob "mo:core@2/Blob";
 import Nat "mo:core@2/Nat";
 import Result "mo:core@2/Result";
-import Blob "mo:core@2/Blob";
 import Runtime "mo:core@2/Runtime";
+
+import Bench "mo:bench";
+
 import ECDSA "../src";
 
 module {

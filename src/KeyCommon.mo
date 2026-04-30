@@ -1,8 +1,10 @@
-import BaseX "mo:base-x-encoder@2";
-import Text "mo:core@2/Text";
-import Result "mo:core@2/Result";
 import Iter "mo:core@2/Iter";
+import Result "mo:core@2/Result";
+import Text "mo:core@2/Text";
+
+import BaseX "mo:base-x-encoder@2";
 import PeekableIter "mo:xtended-iter@1/PeekableIter";
+
 import Curve "Curve";
 
 module {
@@ -68,9 +70,9 @@ module {
         let base64 = BaseX.toBase64(bytes.vals(), #standard({ includePadding = true }));
 
         let iter = PeekableIter.fromIter(base64.chars());
-        var formatted = Text.fromIter(Iter.take(iter, 64));
+        var formatted = Text.fromIter(iter.take(64));
         while (iter.peek() != null) {
-          formatted #= "\n" # Text.fromIter(Iter.take(iter, 64));
+          formatted #= "\n" # Text.fromIter(iter.take(64));
         };
 
         "-----BEGIN " # keyType # " KEY-----\n" # formatted # "\n-----END " # keyType # " KEY-----\n";
@@ -134,10 +136,10 @@ module {
   // Helper function to extract content from PEM format for public keys
   private func extractPEMContent(pem : Text, keyType : Text) : Result.Result<Text, Text> {
     let header = "-----BEGIN " # keyType # " KEY-----";
-    let ?headerTrimmedPem = Text.stripStart(pem, #text(header)) else return #err("Invalid PEM format: missing header " # header);
+    let ?headerTrimmedPem = pem.stripStart(#text(header)) else return #err("Invalid PEM format: missing header " # header);
     let footer = "-----END " # keyType # " KEY-----\n";
-    let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
-    #ok(Text.join(Text.split(trimmedPem, #char('\n')), ""));
+    let ?trimmedPem = headerTrimmedPem.stripEnd(#text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
+    #ok(trimmedPem.split(#char('\n')).join(""));
   };
 
 };

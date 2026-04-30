@@ -1,15 +1,17 @@
+import Iter "mo:core@2/Iter";
+import Nat8 "mo:core@2/Nat8";
+import Result "mo:core@2/Result";
+import Runtime "mo:core@2/Runtime";
+import Text "mo:core@2/Text";
+
+import ASN1 "mo:asn1@3";
+import Sha256 "mo:sha2@0/Sha256";
+
 import Curve "./Curve";
 import PublicKey "./PublicKey";
 import Signature "./Signature";
-import Iter "mo:core@2/Iter";
-import Nat8 "mo:core@2/Nat8";
-import Sha256 "mo:sha2@0/Sha256";
-import Util "Util";
-import ASN1 "mo:asn1@3";
-import Text "mo:core@2/Text";
-import Result "mo:core@2/Result";
-import Runtime "mo:core@2/Runtime";
 import KeyCommon "KeyCommon";
+import Util "Util";
 
 module {
 
@@ -181,7 +183,7 @@ module {
     switch (encoding) {
       case (#raw({ curve })) {
 
-        let ?d = Util.toNatAsBigEndian(Iter.take(bytes, 32)) else return #err("Invalid private key: failed to decode d from bytes");
+        let ?d = Util.toNatAsBigEndian(bytes.take(32)) else return #err("Invalid private key: failed to decode d from bytes");
 
         // Validate the key is in range for the curve
         if (d == 0 or d >= curve.params.r) {

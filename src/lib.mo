@@ -1,9 +1,10 @@
-import CurveModule "./Curve";
-import PublicKeyModule "PublicKey";
-import PrivateKeyModule "PrivateKey";
-import SignatureModule "Signature";
 import Iter "mo:core@2/Iter";
 import Result "mo:core@2/Result";
+
+import CurveModule "./Curve";
+import PrivateKeyModule "PrivateKey";
+import PublicKeyModule "PublicKey";
+import SignatureModule "Signature";
 
 module {
 

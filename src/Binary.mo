@@ -6,10 +6,10 @@ module {
     var buf = List.empty<Bool>();
     var t = x;
     while (t > 0) {
-      List.add(buf, (t % 2) == 1);
+      buf.add((t % 2) == 1);
       t /= 2;
     };
-    List.toArray(buf);
+    buf.toArray();
   };
   // getNAF
   public func toNafWidth(x_ : Int, _w : Int) : [Int] {
@@ -28,7 +28,7 @@ module {
       do {
         var i = 0;
         while (i < zeroNum) {
-          List.add(naf, 0);
+          naf.add(0);
           i += 1;
         };
       };
@@ -38,16 +38,16 @@ module {
         x += 1;
         v -= maxW;
       };
-      List.add(naf, v);
+      naf.add(v);
       zeroNum := w - 1;
     };
     if (negative) {
       var i = 0;
-      while (i < List.size(naf)) {
-        List.put(naf, i, -List.at(naf, i));
+      while (i < naf.size()) {
+        naf.put(i, -naf.at(i));
         i += 1;
       };
     };
-    List.toArray(naf);
+    naf.toArray();
   };
 };
