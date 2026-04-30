@@ -281,7 +281,7 @@ module {
             // Uncompressed key
             let n = 32;
             let ?x = Util.toNatAsBigEndian(bytes.take(n)) else return #err("Unable to parse x coordinate");
-            let ?y = Util.toNatAsBigEndian(bytes.take(n)) else return #err("Unsable to parse y coordinate");
+            let ?y = Util.toNatAsBigEndian(bytes.take(n)) else return #err("Unable to parse y coordinate");
             if (x >= curve.params.p) return #err("Invalid x coordinate, out of range");
             if (y >= curve.params.p) return #err("Invalid y coordinate, out of range");
             let pub = (#fp(x), #fp(y));
