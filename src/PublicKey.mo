@@ -58,7 +58,7 @@ module {
     public let curve = curve_;
 
     public func equal(other : PublicKey) : Bool {
-      curve.kind == curve.kind and curve.isEqual((#fp(x), #fp(y), #fp(1)), (#fp(other.x), #fp(other.y), #fp(1)));
+      curve.kind == other.curve.kind and curve.isEqual((#fp(x), #fp(y), #fp(1)), (#fp(other.x), #fp(other.y), #fp(1)));
     };
 
     public func verify(
