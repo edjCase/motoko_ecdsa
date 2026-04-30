@@ -1,6 +1,15 @@
+/// Internal bit-manipulation helpers used by scalar multiplication.
+///
+/// ```motoko name=import
+/// import Binary "mo:ecdsa/Binary";
+/// ```
+
 import List "mo:core@2/List";
 
 module {
+  /// Returns the bits of `x` in least-significant-first order (so the
+  /// element at index `i` is bit `i` of `x`). Returns the empty array
+  /// when `x == 0`.
   // 13 = 0b1101 => [true,false,true,true]
   public func fromNatReversed(x : Nat) : [Bool] {
     var buf = List.empty<Bool>();
@@ -11,6 +20,11 @@ module {
     };
     buf.toArray();
   };
+  /// Returns the width-`w` non-adjacent form (wNAF) of the integer
+  /// `x_`. Each digit is in `{0, ±1, ±3, ..., ±(2^(w-1)-1)}` and at
+  /// least `w-1` zeros separate consecutive non-zero digits, allowing
+  /// scalar multiplication to amortise table look-ups. The width
+  /// parameter is currently fixed to `5` regardless of `_w`.
   // getNAF
   public func toNafWidth(x_ : Int, _w : Int) : [Int] {
     var naf = List.empty<Int>();

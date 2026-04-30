@@ -1,4 +1,13 @@
+/// Tiny lowercase-hex formatter for `Nat`. Used by debug helpers in
+/// `Curve`.
+///
+/// ```motoko name=import
+/// import Hex "mo:ecdsa/Hex";
+/// ```
+
 module {
+  /// Returns the lowercase hexadecimal representation of `x` without a
+  /// `0x` prefix. Returns `"0"` when `x == 0`.
   public func fromNat(x : Nat) : Text {
     if (x == 0) return "0";
     var ret = "";

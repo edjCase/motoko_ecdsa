@@ -1,4 +1,13 @@
+/// Internal extended-Euclidean helpers used to compute modular inverses
+/// in `Field`.
+///
+/// ```motoko name=import
+/// import IntExt "mo:ecdsa/IntExt";
+/// ```
+
 module {
+  /// Recursive extended Euclidean algorithm. Returns `(d, lambda, mu)`
+  /// such that `d = lambda * a + mu * b`, where `d = gcd(a, b)`.
   // return (d, lambda, mu) with d = lambda * a + mu * b
   public func extGcd(a : Int, b : Int) : (Int, Int, Int) {
     if (a == 0)
@@ -13,6 +22,9 @@ module {
     }
   };
 
+  /// Iterative form of `extGcd` with the same return shape. Currently
+  /// unused; benchmarking showed the recursive version is faster on the
+  /// IC.
   // non-recursive version of the same function
   // turns out to use more cycles
   public func extGcd_nr(a : Int, b : Int) : (Int, Int, Int) {

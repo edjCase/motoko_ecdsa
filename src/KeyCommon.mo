@@ -1,3 +1,10 @@
+/// Internal helpers shared between `PrivateKey` and `PublicKey` for
+/// converting key bytes to and from hex / base64 / PEM text.
+///
+/// ```motoko name=import
+/// import KeyCommon "mo:ecdsa/KeyCommon";
+/// ```
+
 import Iter "mo:core@2/Iter";
 import Result "mo:core@2/Result";
 import Text "mo:core@2/Text";
@@ -9,12 +16,16 @@ import Curve "Curve";
 
 module {
 
+  /// Common shape for byte-encoding inputs that include `#raw`. The
+  /// payload carries the curve to use for parsing.
   public type CommonInputByteEncoding = {
     #raw : {
       curve : Curve.Curve;
     };
   };
 
+  /// Common shape for text-encoding outputs (hex or base64), parameterised
+  /// over the inner byte encoding produced for the key.
   public type CommonOutputTextFormat<OutputByteEncoding> = {
     #base64 : {
       byteEncoding : OutputByteEncoding;
@@ -26,6 +37,8 @@ module {
     };
   };
 
+  /// Common shape for text-encoding inputs (hex or base64), parameterised
+  /// over the inner byte encoding the parsed bytes will be interpreted as.
   public type CommonInputTextFormat<TInputTypeEncoding> = {
     #base64 : {
       byteEncoding : TInputTypeEncoding;
@@ -58,6 +71,8 @@ module {
     };
   };
 
+  /// Encodes raw key bytes as hex, base64, or PEM-armored base64.
+  /// `format` carries the keyType for the PEM `BEGIN/END` lines.
   // Generic function to convert key bytes to text format
   public func toText(
     bytes : [Nat8],
@@ -80,6 +95,10 @@ module {
     };
   };
 
+  /// Decodes hex, base64, or PEM-armored base64 text into key bytes,
+  /// then forwards them to `fromBytes` to build the typed key.
+  /// Returns `#err(msg)` on text-format errors or whatever `fromBytes`
+  /// returns.
   // Generic function to convert text to key bytes
   public func fromText<TKey>(
     value : Text,

@@ -1,3 +1,10 @@
+/// ECDSA public keys: storage, signature verification, and ASN.1 / PEM /
+/// JWK encoding.
+///
+/// ```motoko name=import
+/// import PublicKey "mo:ecdsa/PublicKey";
+/// ```
+
 import Array "mo:core@2/Array";
 import Iter "mo:core@2/Iter";
 import Nat "mo:core@2/Nat";
@@ -16,6 +23,10 @@ import KeyCommon "KeyCommon";
 
 module {
 
+  /// Byte encodings that can be wrapped inside PEM on input.
+  /// `#spki` is X.509 SubjectPublicKeyInfo (RFC 5280); `#ec_public` is the
+  /// bare DER `BIT STRING` containing a SEC1 point (the curve must be
+  /// supplied explicitly since the bare encoding does not carry an OID).
   public type PEMInputByteEncoding = {
     #spki;
     #ec_public : {
@@ -23,18 +34,30 @@ module {
     };
   };
 
+  /// All supported byte encodings for `fromBytes`. Adds `#raw` (a SEC1
+  /// point: 33-byte compressed or 65-byte uncompressed) to the
+  /// PEM-wrappable encodings.
   public type InputByteEncoding = PEMInputByteEncoding or KeyCommon.CommonInputByteEncoding;
 
+  /// Byte encodings that can be wrapped inside PEM on output. Same
+  /// shape as `PEMInputByteEncoding` but without the `curve` payload.
   public type PEMOutputEncoding = {
     #spki; // Subject Public Key Info
     #ec_public; // EC public key in ASN.1 DER format
   };
 
+  /// All supported byte encodings for `toBytes`. Adds `#compressed` (33
+  /// bytes, leading `0x02` / `0x03`) and `#uncompressed` (65 bytes,
+  /// leading `0x04`) to the PEM-wrappable encodings.
   public type OutputByteEncoding = PEMOutputEncoding or {
     #compressed;
     #uncompressed;
   };
 
+  /// All supported text formats for `toText`: hex, base64 (each carrying
+  /// an inner `OutputByteEncoding`), PEM-armored DER, or JWK
+  /// (RFC 7517 / 7518: a JSON object `{kty, crv, x, y}` with
+  /// base64url-encoded coordinates).
   public type OutputTextFormat = KeyCommon.CommonOutputTextFormat<OutputByteEncoding> or {
     #jwk;
     #pem : {
@@ -42,25 +65,42 @@ module {
     };
   };
 
+  /// All supported text formats for `fromText`: hex, base64 (each carrying
+  /// an inner `InputByteEncoding`), or PEM-armored DER. JWK input is not
+  /// supported.
   public type InputTextFormat = KeyCommon.CommonInputTextFormat<InputByteEncoding> or {
     #pem : {
       byteEncoding : PEMInputByteEncoding;
     };
   };
 
+  /// An ECDSA public key represented as the affine point `(x, y)` on
+  /// `curve`.
+  ///
+  /// The constructor does not validate that `(x, y)` lies on the curve;
+  /// callers are expected to use the `from*` parsers when ingesting
+  /// untrusted data.
   public class PublicKey(
     x_ : Nat,
     y_ : Nat,
     curve_ : Curve.Curve,
   ) {
+    /// The affine x-coordinate of this point, `0 <= x < p`.
     public let x = x_;
+    /// The affine y-coordinate of this point, `0 <= y < p`.
     public let y = y_;
+    /// The curve this public key belongs to.
     public let curve = curve_;
 
+    /// Returns `true` when `other` denotes the same point on the same curve.
     public func equal(other : PublicKey) : Bool {
       curve.kind == other.curve.kind and curve.isEqual((#fp(x), #fp(y), #fp(1)), (#fp(other.x), #fp(other.y), #fp(1)));
     };
 
+    /// Hashes `msg` with SHA-256 and verifies `sig` against the digest.
+    /// Returns `true` iff `sig` is a valid ECDSA signature of the hashed
+    /// message under this public key. The signature must be in low-S
+    /// form (BIP 62); higher-S signatures are rejected.
     public func verify(
       msg : Iter.Iter<Nat8>,
       sig : Signature.Signature,
@@ -72,6 +112,9 @@ module {
       verifyHashed(hashedMsg, sig);
     };
 
+    /// Like `verify`, but takes an already-hashed message. `hashedMsg`
+    /// must yield exactly 32 bytes (the SHA-256 digest); only the first
+    /// 32 bytes are consumed.
     public func verifyHashed(
       hashedMsg : Iter.Iter<Nat8>,
       signature : Signature.Signature,
@@ -92,6 +135,13 @@ module {
       };
     };
 
+    /// Serialises the key to text in the chosen `format`.
+    ///
+    /// `#hex` and `#base64` wrap the byte encoding selected inside the
+    /// variant. `#pem` produces a PEM-armored DER block (`PUBLIC KEY` for
+    /// SPKI, `EC PUBLIC KEY` for the bare encoding). `#jwk` produces a
+    /// JSON Web Key string with base64url-encoded `x` and `y` and a `crv`
+    /// of `"secp256k1"` or `"P-256"`.
     public func toText(format : OutputTextFormat) : Text {
       switch (format) {
         case (#hex(hex)) {
@@ -135,6 +185,16 @@ module {
       };
     };
 
+    /// Serialises the key to bytes in the chosen `encoding`.
+    ///
+    /// - `#compressed` returns 33 bytes: a `0x02`/`0x03` prefix
+    ///   indicating y-parity, followed by the 32-byte big-endian x.
+    /// - `#uncompressed` returns 65 bytes: a `0x04` prefix followed by
+    ///   32-byte big-endian x and y.
+    /// - `#ec_public` wraps the uncompressed point in a DER `BIT STRING`.
+    /// - `#spki` wraps the uncompressed point in a DER
+    ///   SubjectPublicKeyInfo with the appropriate algorithm and curve
+    ///   OIDs.
     public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
       switch (encoding) {
         case (#spki) {
@@ -205,6 +265,12 @@ module {
     };
   };
 
+  /// Decodes a `PublicKey` from a byte stream in the chosen `encoding`.
+  ///
+  /// See `InputByteEncoding` for the supported wire formats. Returns
+  /// `#err(msg)` on malformed input, an unknown SEC1 prefix byte, an
+  /// out-of-range coordinate, a point that is not on the curve, or an
+  /// unknown curve OID in the SPKI wrapper.
   public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PublicKey, Text> {
     switch (encoding) {
       case (#raw({ curve })) {
@@ -275,6 +341,11 @@ module {
       };
     };
   };
+  /// Decodes a `PublicKey` from a textual representation.
+  ///
+  /// See `InputTextFormat` for the supported text formats. Returns
+  /// `#err(msg)` on malformed text or invalid inner bytes (see
+  /// `fromBytes`). JWK input is not supported.
   public func fromText(value : Text, format : InputTextFormat) : Result.Result<PublicKey, Text> {
     let (internalFormat, byteEncoding) = switch (format) {
       case (#hex({ format; byteEncoding })) (#hex({ format }), byteEncoding);
