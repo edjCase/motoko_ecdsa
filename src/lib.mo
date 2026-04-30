@@ -16,6 +16,7 @@
 
 import Iter "mo:core@2/Iter";
 import Result "mo:core@2/Result";
+import Option "mo:core/Option";
 
 import CurveModule "./Curve";
 import PrivateKeyModule "PrivateKey";
@@ -102,7 +103,7 @@ module {
   public func PrivateKey(
     d : Nat,
     curve : CurveModule.Curve,
-  ) : PrivateKey = PrivateKeyModule.PrivateKey(d, curve);
+  ) : PrivateKey = PrivateKeyModule.PrivateKey(d % curve.params.r, curve);
 
   /// Decodes a `PrivateKey` from a byte stream.
   ///
