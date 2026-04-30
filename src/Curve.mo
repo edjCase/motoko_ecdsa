@@ -85,6 +85,126 @@ module {
       case (#prime256v1) false;
     };
 
+    // Fast pseudo-Mersenne reduction modulo the secp256k1 prime
+    // p = 2^256 - C, where C = 2^32 + 977.
+    //
+    // For any t with 0 <= t < p^2 (e.g. the result of multiplying two
+    // reduced field elements), 2^256 ≡ C (mod p) gives
+    //
+    //   t  ≡  t_lo + t_hi * C  (mod p),  where t = t_hi * 2^256 + t_lo.
+    //
+    // Two passes are enough to bring the value below 2 * 2^256, after
+    // which a single conditional subtraction of p produces the canonical
+    // representative. The high half is extracted with `Nat.bitshiftRight`
+    // (mapped to `Prim.shiftRight`), and the low half is recovered as
+    // `t - (t_hi << 256)` to avoid a general modulo operation.
+    let SECP_C : Nat = 0x1000003D1; // 2^32 + 977
+    func reduceSecp(t : Nat) : Nat {
+      // First pass: t_hi < 2^256, so t_hi * C < 2^289 and u < 2^290.
+      let tHi = Nat.bitshiftRight(t, 256);
+      let tLo = t - Nat.bitshiftLeft(tHi, 256);
+      let u = tLo + tHi * SECP_C;
+      // Second pass: u_hi < 2^34, so u_hi * C < 2^67 and v < 2^256 + 2^67.
+      let uHi = Nat.bitshiftRight(u, 256);
+      let uLo = u - Nat.bitshiftLeft(uHi, 256);
+      let v = uLo + uHi * SECP_C;
+      if (v >= p_) v - p_ else v;
+    };
+
+    // Per-curve `Fp.mul` and `Fp.sqr`: secp256k1 uses the pseudo-Mersenne
+    // shortcut above; prime256v1 falls back to generic `Field.mul_`.
+    let fpMulNat : (Nat, Nat) -> Nat = switch (kind) {
+      case (#secp256k1) (func(x, y) = reduceSecp(x * y));
+      case (#prime256v1) (func(x, y) = Field.mul_(x, y, p_));
+    };
+    let fpSqrNat : Nat -> Nat = switch (kind) {
+      case (#secp256k1) (func(x) = reduceSecp(x * x));
+      case (#prime256v1) (func(x) = Field.sqr_(x, p_));
+    };
+
+    // ===== Montgomery-form arithmetic for prime256v1 =====
+    //
+    // p-256 has no compact pseudo-Mersenne form, so the scalar-mul hot
+    // loop is run in the Montgomery domain instead. Values stored as
+    // `aM = a * R mod p`, with `R = 2^256`. Multiplication uses REDC,
+    // implemented here using `Nat.bitshiftRight` / `Nat.bitshiftLeft`
+    // (which map to `Prim.shiftRight` / `Prim.shiftLeft` and are fast)
+    // rather than the generic `% R` / `/ R`, which on `Nat` go through
+    // the slow general-bignum-division path.
+    //
+    // Constants are computed once per `Curve` instance. They are only
+    // meaningful for `#prime256v1`; the `#secp256k1` instance fills the
+    // slots with zeros and never invokes the Mont-form routines.
+    let isP256 = kind == #prime256v1;
+
+    // (-p^{-1}) mod 2^256, via Newton iteration on an odd modulus:
+    // start with x = 1 (correct mod 2 since p is odd) and iterate
+    // x := x * (2 - p*x) mod 2^256, doubling correct bits each step.
+    func computePPrime() : Nat {
+      if (not isP256) return 0;
+      var x : Nat = 1;
+      var k : Nat = 1;
+      while (k < 256) {
+        let nx = p_ * x;
+        let nxLo = nx - Nat.bitshiftLeft(Nat.bitshiftRight(nx, 256), 256);
+        // 2 - nxLo (mod 2^256), avoiding negative intermediates.
+        let twoMinus = if (nxLo <= 2) (2 - nxLo : Nat) else (
+          // 2^256 + 2 - nxLo
+          (Nat.bitshiftLeft(1, 256) + 2 - nxLo : Nat)
+        );
+        let xnew = x * twoMinus;
+        x := xnew - Nat.bitshiftLeft(Nat.bitshiftRight(xnew, 256), 256);
+        k *= 2;
+      };
+      // x ≡ p^{-1} mod R; return (-x) mod R.
+      if (x == 0) 0 else Nat.bitshiftLeft(1, 256) - x;
+    };
+
+    let pPrime : Nat = computePPrime();
+    // R mod p
+    let oneM : Nat = if (isP256) {
+      let R = Nat.bitshiftLeft(1, 256);
+      R % p_;
+    } else 0;
+    // R^2 mod p, used to enter the Mont domain.
+    let R2M : Nat = if (isP256) {
+      let R = Nat.bitshiftLeft(1, 256);
+      (R * R) % p_;
+    } else 0;
+    // Mont-form encoding of the curve coefficient `a` (used in `dblM`).
+    let aMontP : Nat = if (isP256) {
+      let #fp(av) = a_;
+      // toMont(av) = REDC(av * R2M); inline since redcP isn't defined yet.
+      let t = av * R2M;
+      let tLo = t - Nat.bitshiftLeft(Nat.bitshiftRight(t, 256), 256);
+      let m = pPrime * tLo;
+      let mLo = m - Nat.bitshiftLeft(Nat.bitshiftRight(m, 256), 256);
+      let u = Nat.bitshiftRight(t + mLo * p_, 256);
+      if (u >= p_) u - p_ else u;
+    } else 0;
+
+    // Montgomery reduction. Given t with 0 <= t < p * R, returns
+    // t * R^{-1} mod p, fully reduced (< p).
+    func redcP(t : Nat) : Nat {
+      let tLo = t - Nat.bitshiftLeft(Nat.bitshiftRight(t, 256), 256);
+      let m = pPrime * tLo;
+      let mLo = m - Nat.bitshiftLeft(Nat.bitshiftRight(m, 256), 256);
+      let u = Nat.bitshiftRight(t + mLo * p_, 256);
+      if (u >= p_) u - p_ else u;
+    };
+
+    // Mont multiplication / squaring / conversions.
+    func mulMontP(a : Nat, b : Nat) : Nat = redcP(a * b);
+    func sqrMontP(a : Nat) : Nat = redcP(a * a);
+    func toMontP(a : Nat) : Nat = redcP(a * R2M);
+    func fromMontP(a : Nat) : Nat = redcP(a);
+    func addMontP(a : Nat, b : Nat) : Nat {
+      let s = a + b;
+      if (s >= p_) s - p_ else s;
+    };
+    func subMontP(a : Nat, b : Nat) : Nat = if (a >= b) a - b else a + p_ - b;
+    func negMontP(a : Nat) : Nat = if (a == 0) 0 else p_ - a;
+
     /// Returns the bit-width of the curve's field. Both supported curves
     /// are 256-bit, so the only possible value is `#b256`. Reserved as a
     /// variant for future curves.
@@ -98,13 +218,13 @@ module {
       fromNat = func(n : Nat) : FpElt = #fp(n % p_);
       toNat = func(#fp(x) : FpElt) : Nat = x;
       add = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(Field.add_(x, y, p_));
-      mul = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(Field.mul_(x, y, p_));
+      mul = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(fpMulNat(x, y));
       sub = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(Field.sub_(x, y, p_));
       div = func(#fp(x) : FpElt, #fp(y) : FpElt) : FpElt = #fp(Field.div_(x, y, p_));
       pow = func(#fp(x) : FpElt, n : Nat) : FpElt = #fp(Field.pow_(x, n, p_));
       neg = func(#fp(x) : FpElt) : FpElt = #fp(Field.neg_(x, p_));
       inv = func(#fp(x) : FpElt) : FpElt = #fp(Field.inv_(x, p_));
-      sqr = func(#fp(x) : FpElt) : FpElt = #fp(Field.sqr_(x, p_));
+      sqr = func(#fp(x) : FpElt) : FpElt = #fp(fpSqrNat(x));
     };
 
     /// Modular arithmetic on the scalar field `F_r` (where `r` is the
@@ -380,6 +500,11 @@ module {
         return zeroJ;
       };
 
+      if (isP256) {
+        // Run the double-and-add loop in the Montgomery domain.
+        return mul_standardMontP(a, k);
+      };
+
       // Simple double-and-add algorithm with window optimization for larger scalars
       var result = zeroJ;
       var doubling = a;
@@ -394,6 +519,153 @@ module {
       };
 
       return result;
+    };
+
+    // ===== Mont-form Jacobi arithmetic for prime256v1 =====
+    //
+    // Points are stored as `(xM, yM, zM)` with each coordinate Mont-encoded
+    // (a stored as a*R mod p). The point at infinity is represented by zM = 0.
+    // `dblM` follows the same a=-3 Jacobian formula as `dbl`; `addM` mirrors
+    // `add`. All field ops are Mont-form (`mulMontP`, `sqrMontP`, etc.), and
+    // the linear ops (add/sub/neg) carry over unchanged because Mont encoding
+    // is linear.
+
+    type JacobiM = (Nat, Nat, Nat);
+    let zeroJM : JacobiM = (0, 0, 0);
+
+    func isZeroJM((_, _, z) : JacobiM) : Bool = z == 0;
+
+    func dblM((x, y, z) : JacobiM) : JacobiM {
+      if (z == 0) return zeroJM;
+
+      let x2 = sqrMontP(x);
+      let y2 = sqrMontP(y);
+      let z2 = sqrMontP(z);
+
+      // S = 4*x*y^2
+      var S = mulMontP(x, y2);
+      S := addMontP(S, S);
+      S := addMontP(S, S);
+
+      // M = 3*x^2 + a*z^4   (a = -3 for p256, so always nonzero)
+      var M = addMontP(x2, x2);
+      M := addMontP(M, x2);
+      let z4 = sqrMontP(z2);
+      let az4 = mulMontP(aMontP, z4);
+      M := addMontP(M, az4);
+
+      // x' = M^2 - 2*S
+      var rx = sqrMontP(M);
+      rx := subMontP(rx, S);
+      rx := subMontP(rx, S);
+
+      // y' = M*(S - x') - 8*y^4
+      var y4 = sqrMontP(y2);
+      y4 := addMontP(y4, y4);
+      y4 := addMontP(y4, y4);
+      y4 := addMontP(y4, y4);
+
+      var ry = subMontP(S, rx);
+      ry := mulMontP(M, ry);
+      ry := subMontP(ry, y4);
+
+      // z' = 2*y*z
+      var rz = mulMontP(y, z);
+      rz := addMontP(rz, rz);
+
+      (rx, ry, rz);
+    };
+
+    func addM((px, py, pz) : JacobiM, (qx, qy, qz) : JacobiM) : JacobiM {
+      if (pz == 0) return (qx, qy, qz);
+      if (qz == 0) return (px, py, pz);
+      let isPzOne = pz == oneM;
+      let isQzOne = qz == oneM;
+      var r = if (isPzOne) oneM else sqrMontP(pz);
+      var U1 : Nat = 0;
+      var S1 : Nat = 0;
+      var H : Nat = 0;
+      if (isQzOne) {
+        U1 := px;
+        H := if (isPzOne) qx else mulMontP(qx, r);
+        H := subMontP(H, U1);
+        S1 := py;
+      } else {
+        S1 := sqrMontP(qz);
+        U1 := mulMontP(px, S1);
+        H := if (isPzOne) qx else mulMontP(qx, r);
+        H := subMontP(H, U1);
+        S1 := mulMontP(S1, qz);
+        S1 := mulMontP(S1, py);
+      };
+      if (isPzOne) {
+        r := qy;
+      } else {
+        r := mulMontP(r, pz);
+        r := mulMontP(r, qy);
+      };
+      r := subMontP(r, S1);
+      if (H == 0) {
+        if (r == 0) {
+          return dblM((px, py, pz));
+        } else {
+          return zeroJM;
+        };
+      };
+      var rx : Nat = 0;
+      var ry : Nat = 0;
+      var rz : Nat = 0;
+      if (isPzOne) {
+        rz := if (isQzOne) H else mulMontP(H, qz);
+      } else {
+        if (isQzOne) {
+          rz := mulMontP(pz, H);
+        } else {
+          rz := mulMontP(pz, qz);
+          rz := mulMontP(rz, H);
+        };
+      };
+      var H3 = sqrMontP(H);
+      ry := sqrMontP(r);
+      U1 := mulMontP(U1, H3);
+      H3 := mulMontP(H3, H);
+      ry := subMontP(ry, U1);
+      ry := subMontP(ry, U1);
+      rx := subMontP(ry, H3);
+      U1 := subMontP(U1, rx);
+      U1 := mulMontP(U1, r);
+      H3 := mulMontP(H3, S1);
+      ry := subMontP(U1, H3);
+      (rx, ry, rz);
+    };
+
+    func toJacobiM((x, y, z) : Jacobi) : JacobiM {
+      let #fp(xn) = x;
+      let #fp(yn) = y;
+      let #fp(zn) = z;
+      if (zn == 0) return zeroJM;
+      (toMontP(xn), toMontP(yn), toMontP(zn));
+    };
+
+    func fromJacobiM((x, y, z) : JacobiM) : Jacobi {
+      if (z == 0) return zeroJ;
+      (#fp(fromMontP(x)), #fp(fromMontP(y)), #fp(fromMontP(z)));
+    };
+
+    func mul_standardMontP(a : Jacobi, k : Nat) : Jacobi {
+      var result = zeroJM;
+      var doubling = toJacobiM(a);
+      var scalar = k;
+
+      while (scalar > 0) {
+        if (scalar % 2 == 1) {
+          result := addM(result, doubling);
+        };
+        doubling := dblM(doubling);
+        scalar /= 2;
+      };
+
+      fromJacobiM(result);
     };
 
     /// Returns the normalised affine `(x, y, z)` triple as hex strings.
