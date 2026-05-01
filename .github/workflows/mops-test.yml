@@ -32,6 +32,9 @@ jobs:
       - name: run tests
         run: mops test
 
+      - name: run benchmarks
+        run: mops bench
+
   format:
     name: Check formatting
     runs-on: ubuntu-24.04
