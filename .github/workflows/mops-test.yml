@@ -1,0 +1,49 @@
+name: Tests and formatting
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [synchronize, opened, reopened, ready_for_review, unlabeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: caffeinelabs/setup-mops@v1
+
+      - name: make sure moc is installed
+        run: mops toolchain bin moc || mops toolchain use moc latest
+
+      - name: Show mops version
+        run: mops -v
+
+      - name: Install all mops dependencies
+        run: mops install
+
+      - name: run tests
+        run: mops test
+
+  format:
+    name: Check formatting
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install prettier plugin
+        run: npm install --save-dev prettier prettier-plugin-motoko
+
+      - name: Run prettier check
+        run: npx prettier --check --plugin=prettier-plugin-motoko **/*.mo
