@@ -20,7 +20,7 @@ module {
   /// byte when `x == 0`).
   /// 0x1234 => [0x12, 0x34], 0 => [0]
   public func toBigEndian(x : Nat) : [Nat8] {
-    var buf = List.empty<Nat8>();
+    let buf = List.empty<Nat8>();
     NatX.toNatBytesBuffer(Buffer.fromList(buf), x, #msb);
     buf.toArray();
   };
@@ -29,7 +29,7 @@ module {
   /// caller must ensure `x` fits in `len` bytes.
   /// (5, 0x1234) => [0x00, 0x00, 0x00, 0x12, 0x34]
   public func toBigEndianPad(len : Nat, x : Nat) : [Nat8] {
-    var buf = List.empty<Nat8>();
+    let buf = List.empty<Nat8>();
     NatX.toNatBytesBuffer(Buffer.fromList(buf), x, #msb);
     if (buf.size() < len) {
       let paddedBuffer = List.repeat<Nat8>(0x00, len - buf.size());

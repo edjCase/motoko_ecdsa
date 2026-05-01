@@ -328,7 +328,7 @@ for (curveKind in curveKinds.vals()) {
         func() {
           let m1 = 5 * 2 ** 128;
           let m2 = 6 * 2 ** 128;
-          var x1 = C.Fp.fromNat(m1);
+          let x1 = C.Fp.fromNat(m1);
           var x2 = C.Fp.fromNat(m2);
           assert (C.Fp.add(x1, x2) == C.Fp.fromNat(m1 + m2));
           assert (C.Fp.sub(x1, x2) == C.Fp.fromNat(m1 + p - m2 : Nat));
