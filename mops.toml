@@ -1,6 +1,6 @@
 [package]
 name = "ecdsa"
-version = "7.1.0"
+version = "8.0.0"
 description = "Library to sign and verify with ECDSA"
 repository = "https://github.com/edjCase/motoko_ecdsa"
 keywords = [
@@ -30,3 +30,5 @@ bench-helper = "0.0.3"
 
 [toolchain]
 moc = "1.7.0"
+pocket-ic = "9.0.3"
+

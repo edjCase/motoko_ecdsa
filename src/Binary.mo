@@ -12,7 +12,7 @@ module {
   /// when `x == 0`.
   // 13 = 0b1101 => [true,false,true,true]
   public func fromNatReversed(x : Nat) : [Bool] {
-    var buf = List.empty<Bool>();
+    let buf = List.empty<Bool>();
     var t = x;
     while (t > 0) {
       buf.add((t % 2) == 1);
@@ -27,7 +27,7 @@ module {
   /// parameter is currently fixed to `5` regardless of `_w`.
   // getNAF
   public func toNafWidth(x_ : Int, _w : Int) : [Int] {
-    var naf = List.empty<Int>();
+    let naf = List.empty<Int>();
     let w = 5;
     let signedMaxW : Int = 2 ** (w - 1);
     let maxW = signedMaxW * 2;

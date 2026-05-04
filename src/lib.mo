@@ -16,7 +16,6 @@
 
 import Iter "mo:core@2/Iter";
 import Result "mo:core@2/Result";
-import Option "mo:core/Option";
 
 import CurveModule "./Curve";
 import PrivateKeyModule "PrivateKey";

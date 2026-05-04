@@ -372,9 +372,9 @@ module {
       // Special optimized formula for curves with a=-3 (like prime256v1)
       // Uses complete formulas from https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html
 
-      var x2 = Fp.sqr(x);
-      var y2 = Fp.sqr(y);
-      var z2 = Fp.sqr(z);
+      let x2 = Fp.sqr(x);
+      let y2 = Fp.sqr(y);
+      let z2 = Fp.sqr(z);
 
       // S = 4*x*y^2
       var S = Fp.mul(x, y2);
@@ -387,8 +387,8 @@ module {
 
       if (a_ != #fp(0)) {
         // For prime256v1, a = -3
-        var z4 = Fp.sqr(z2);
-        var az4 = Fp.mul(a_, z4);
+        let z4 = Fp.sqr(z2);
+        let az4 = Fp.mul(a_, z4);
         M := Fp.add(M, az4); // 3*x^2 + a*z^4
       };
 
@@ -707,8 +707,8 @@ module {
       let naf0 = Binary.toNafWidth(u.0, w);
       let naf1 = Binary.toNafWidth(u.1, w);
       let maxBit = Nat.max(naf0.size(), naf1.size());
-      var tbl0 = List.empty<Jacobi>();
-      var tbl1 = List.empty<Jacobi>();
+      let tbl0 = List.empty<Jacobi>();
+      let tbl1 = List.empty<Jacobi>();
       tbl0.add(x);
       tbl1.add(mulLambda(x));
       do {
