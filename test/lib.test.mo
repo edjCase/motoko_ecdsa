@@ -1,21 +1,23 @@
-import M "../src";
-import Field "../src/Field";
-import Curve "../src/Curve";
-import Binary "../src/Binary";
-import Util "../src/Util";
-import Nat "mo:core@1/Nat";
-import Int "mo:core@1/Int";
-import Blob "mo:core@1/Blob";
-import Iter "mo:core@1/Iter";
-import Nat8 "mo:core@1/Nat8";
-import { test; suite } "mo:test";
+import Array "mo:core@2/Array";
+import Blob "mo:core@2/Blob";
+import Int "mo:core@2/Int";
+import Iter "mo:core@2/Iter";
+import Nat "mo:core@2/Nat";
+import Nat8 "mo:core@2/Nat8";
+import Result "mo:core@2/Result";
+import Runtime "mo:core@2/Runtime";
+
 import Sha256 "mo:sha2@0/Sha256";
-import Array "mo:core@1/Array";
-import Result "mo:core@1/Result";
+import { test; suite } "mo:test";
+
+import M "../src";
+import Binary "../src/Binary";
+import Curve "../src/Curve";
+import Field "../src/Field";
 import PrivateKey "../src/PrivateKey";
 import PublicKey "../src/PublicKey";
 import Signature "../src/Signature";
-import Runtime "mo:core@1/Runtime";
+import Util "../src/Util";
 
 func sha2(bytes : Iter.Iter<Nat8>) : Blob {
   Sha256.fromIter(#sha256, bytes);
@@ -326,7 +328,7 @@ for (curveKind in curveKinds.vals()) {
         func() {
           let m1 = 5 * 2 ** 128;
           let m2 = 6 * 2 ** 128;
-          var x1 = C.Fp.fromNat(m1);
+          let x1 = C.Fp.fromNat(m1);
           var x2 = C.Fp.fromNat(m2);
           assert (C.Fp.add(x1, x2) == C.Fp.fromNat(m1 + m2));
           assert (C.Fp.sub(x1, x2) == C.Fp.fromNat(m1 + p - m2 : Nat));
@@ -444,7 +446,7 @@ for (curveKind in curveKinds.vals()) {
           let hello : [Nat8] = [0x68, 0x65, 0x6c, 0x6c, 0x6f];
           // sha256('hello')
           let hashed : [Nat8] = [0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24];
-          assert (Blob.toArray(sha2(hello.vals())) == hashed);
+          assert (sha2(hello.vals()).toArray() == hashed);
 
           let secBytes : [Nat8] = [0x83, 0xec, 0xb3, 0x98, 0x4a, 0x4f, 0x9f, 0xf0, 0x3e, 0x84, 0xd5, 0xf9, 0xc0, 0xd7, 0xf8, 0x88, 0xa8, 0x18, 0x33, 0x64, 0x30, 0x47, 0xac, 0xc5, 0x8e, 0xb6, 0x43, 0x1e, 0x01, 0xd9, 0xba, 0xc8];
           let expectedSecKey = 0x83ecb3984a4f9ff03e84d5f9c0d7f888a81833643047acc58eb6431e01d9bac8;
@@ -869,7 +871,7 @@ for (curveKind in curveKinds.vals()) {
             let n = correct.size();
             var i = 0;
             while (i < n) {
-              let b = Iter.take(correct.vals(), i);
+              let b = correct.vals().take(i);
 
               switch (Signature.fromBytes(b, curve, #der)) {
                 case (#err(_)) ();
@@ -1469,3 +1471,38 @@ for (curveKind in curveKinds.vals()) {
     },
   );
 };
+
+test(
+  "publicKeyFromPemFooterVariations",
+  func() {
+    let x = 38_429_425_455_415_631_134_142_539_000_605_002_670_886_210_329_907_085_845_074_048_940_350_736_307_511;
+    let y = 575_828_099_184_175_788_894_911_350_722_390_938_371_747_048_717_700_577_109_830_429_869_990_220_126;
+    let curve = Curve.Curve(#secp256k1);
+    let inputFormat : PublicKey.InputTextFormat = #pem({ byteEncoding = #spki });
+
+    let line1 = "MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEVPZItKqGdZjsozZZhVoumb81Irk4o908";
+    let line2 = "0wjkXELaFTcBReg7RbcmrSP1uvafaEYOJ9LnZsx+0v1uypCuM9gRXg==";
+    let header = "-----BEGIN PUBLIC KEY-----";
+    let footer = "-----END PUBLIC KEY-----";
+
+    let variants : [(Text, Text)] = [
+      ("LF_with_trailing_newline", header # "\n" # line1 # "\n" # line2 # "\n" # footer # "\n"),
+      ("LF without trailing newline", header # "\n" # line1 # "\n" # line2 # "\n" # footer),
+      ("CRLF with trailing newline", header # "\r\n" # line1 # "\r\n" # line2 # "\r\n" # footer # "\r\n"),
+      ("CRLF without trailing newline", header # "\r\n" # line1 # "\r\n" # line2 # "\r\n" # footer),
+      ("LF with trailing CRLF", header # "\n" # line1 # "\n" # line2 # "\n" # footer # "\r\n"),
+    ];
+
+    for ((name, pem) in variants.vals()) {
+      switch (PublicKey.fromText(pem, inputFormat)) {
+        case (#err(e)) Runtime.trap("Failed to parse PEM variant '" # name # "': " # e);
+        case (#ok(parsedKey)) {
+          assert (parsedKey.curve.kind == curve.kind);
+          if (parsedKey.x != x or parsedKey.y != y) {
+            Runtime.trap("Parsed key mismatch for variant '" # name # "'");
+          };
+        };
+      };
+    };
+  },
+);

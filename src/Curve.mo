@@ -1,17 +1,31 @@
+/// Elliptic curve parameters and Jacobi-coordinate point arithmetic for
+/// secp256k1 and prime256v1 (NIST P-256). Most users should access this
+/// module through `mo:ecdsa` rather than directly.
+///
+/// ```motoko name=import
+/// import Curve "mo:ecdsa/Curve";
+/// ```
+
+import Debug "mo:core@2/Debug";
+import Int "mo:core@2/Int";
+import Iter "mo:core@2/Iter";
+import List "mo:core@2/List";
+import Nat "mo:core@2/Nat";
+
+import Binary "./Binary";
 import Field "./Field";
 import Hex "./Hex";
-import Binary "./Binary";
-import Debug "mo:core@1/Debug";
-import Nat "mo:core@1/Nat";
-import Int "mo:core@1/Int";
-import Iter "mo:core@1/Iter";
 import Util "./Util";
-import List "mo:core@1/List";
 
 module {
+  /// An element of the base field `F_p`, where `p` is the curve's field prime.
   public type FpElt = { #fp : Nat };
+  /// An element of the scalar field `F_r`, where `r` is the curve order.
   public type FrElt = { #fr : Nat };
+  /// An affine point `(x, y)` on the curve.
   public type Affine = (FpElt, FpElt);
+  /// A point on the curve, either the point at infinity (`#zero`) or an
+  /// affine point.
   public type Point = { #zero; #affine : Affine };
 
   type CurveParams = {
@@ -36,15 +50,28 @@ module {
     v1 : Int = 303414439467246543595250775667605759172;
   };
 
+  /// A point in Jacobi (a.k.a. Jacobian) projective coordinates `(X, Y, Z)`,
+  /// representing the affine point `(X/Z^2, Y/Z^3)` when `Z != 0`, and the
+  /// point at infinity when `Z == 0`. Used internally to avoid expensive
+  /// modular inversions during chained operations.
   public type Jacobi = (FpElt, FpElt, FpElt);
 
+  /// The supported short Weierstrass curves.
+  /// `#secp256k1` is the Bitcoin / ICP curve (`y^2 = x^3 + 7`).
+  /// `#prime256v1` is NIST P-256 (`y^2 = x^3 - 3x + b`).
   public type CurveKind = {
     #secp256k1;
     #prime256v1;
   };
 
+  /// Holds the parameters and arithmetic operations for one of the
+  /// supported curves. Constructing a `Curve` allocates parameter tables;
+  /// reuse the same instance across many keys and signatures.
   public class Curve(kind_ : CurveKind) {
+    /// Which curve this instance represents.
     public let kind = kind_;
+    /// The full parameter set for `kind` (field prime, order, generator,
+    /// etc.).
     public let params : CurveParams = getParams(kind);
     let p_ = params.p;
     let r_ = params.r;
@@ -58,10 +85,15 @@ module {
       case (#prime256v1) false;
     };
 
+    /// Returns the bit-width of the curve's field. Both supported curves
+    /// are 256-bit, so the only possible value is `#b256`. Reserved as a
+    /// variant for future curves.
     public func getBitSize() : { #b256 } = switch (kind) {
       case (#secp256k1 or #prime256v1) #b256;
     };
 
+    /// Modular arithmetic on the base field `F_p`. Each operation takes
+    /// `FpElt` values that are assumed to be already reduced modulo `p`.
     public let Fp = {
       fromNat = func(n : Nat) : FpElt = #fp(n % p_);
       toNat = func(#fp(x) : FpElt) : Nat = x;
@@ -75,6 +107,9 @@ module {
       sqr = func(#fp(x) : FpElt) : FpElt = #fp(Field.sqr_(x, p_));
     };
 
+    /// Modular arithmetic on the scalar field `F_r` (where `r` is the
+    /// curve order). Each operation takes `FrElt` values that are assumed
+    /// to be already reduced modulo `r`.
     public let Fr = {
       fromNat = func(n : Nat) : FrElt = #fr(n % r_);
       toNat = func(#fr(x) : FrElt) : Nat = x;
@@ -88,25 +123,39 @@ module {
       sqr = func(#fr(x) : FrElt) : FrElt = #fr(Field.sqr_(x, r_));
     };
 
+    /// Returns `true` when `other` represents the same curve.
     public func equal(other : Curve) : Bool {
       kind == other.kind;
     };
 
+    /// Computes a square root of `x` in `F_p` using the curve's precomputed
+    /// `(p+1)/4` exponent. Returns `null` if `x` is not a quadratic
+    /// residue. Only correct for primes with `p ≡ 3 (mod 4)`, which both
+    /// supported curves satisfy.
     public func fpSqrRoot(x : FpElt) : ?FpElt {
       let sq = Fp.pow(x, pSqrRoot_);
       if (Fp.sqr(sq) == x) ?sq else null;
     };
 
+    /// Reads a 32-byte big-endian integer from `rand` and reduces it
+    /// modulo the curve order to yield a scalar. Returns `null` if `rand`
+    /// yields fewer than 32 bytes.
     public func getExponent(
       rand : Iter.Iter<Nat8>
     ) : ?FrElt {
-      let ?nat = Util.toNatAsBigEndian(Iter.take(rand, 32)) else return null;
+      let ?nat = Util.toNatAsBigEndian(rand.take(32)) else return null;
       ?Fr.fromNat(nat);
     };
 
+    /// Computes `y^2 = x^3 + a*x + b` for the given `x`.
     // return x^3 + ax + b
     public func getYsqrFromX(x : FpElt) : FpElt = Fp.add(Fp.mul(Fp.add(Fp.sqr(x), a_), x), b_);
 
+    /// Recovers the `y` coordinate that pairs with `x` on the curve.
+    /// Returns `null` if `x` is not a valid x-coordinate (no point on the
+    /// curve has this x). The `even` flag selects between the two roots:
+    /// returns the one whose lowest bit matches `(if even then 0 else 1)`.
+    /// Used when decompressing a SEC1 point.
     /// Get y corresponding to x such that y^2 = x^ + ax + b.
     /// Return even y if `even` is true.
     public func getYfromX(x : FpElt, even : Bool) : ?FpElt {
@@ -117,19 +166,28 @@ module {
       };
     };
 
+    /// Returns `true` when the affine point `(x, y)` satisfies the curve
+    /// equation.
     public func isValidAffine((x, y) : Affine) : Bool = Fp.sqr(y) == getYsqrFromX(x);
 
+    /// The curve's generator `G` in Jacobi form (with `Z = 1`).
     public let G_ = (params.g.0, params.g.1, #fp(1));
 
+    /// The Jacobi representation of the point at infinity (`Z = 0`).
     public let zeroJ = (#fp(0), #fp(0), #fp(0));
 
+    /// Returns `true` when `p` is the point at infinity.
     public func isZero((_, _, z) : Jacobi) : Bool = z == #fp(0);
 
+    /// Lifts a `Point` to its Jacobi representation.
     public func toJacobi(a : Point) : Jacobi = switch (a) {
       case (#zero) zeroJ;
       case (#affine(x, y)) (x, y, #fp(1));
     };
 
+    /// Returns the canonical Jacobi representative with `Z = 1` (or
+    /// `Z = 0` for the point at infinity). Performs one modular inversion
+    /// of `Z`.
     public func normalize((x, y, z) : Jacobi) : Jacobi {
       if (z == #fp(0)) return (x, y, z);
       let rz = Fp.inv(z);
@@ -137,12 +195,17 @@ module {
       (Fp.mul(x, rz2), Fp.mul(Fp.mul(y, rz2), rz), #fp(1));
     };
 
+    /// Converts a Jacobi point to its affine `Point` representation,
+    /// performing one modular inversion. Returns `#zero` for the point at
+    /// infinity.
     public func fromJacobi(a : Jacobi) : Point {
       let (x, y, z) = normalize(a);
       if (z == #fp(0)) return #zero;
       #affine(x, y);
     };
 
+    /// Returns `true` when the Jacobi point lies on the curve. Works
+    /// without normalising `Z`.
     public func isValid((x, y, z) : Jacobi) : Bool {
       let x2 = Fp.sqr(x);
       let y2 = Fp.sqr(y);
@@ -157,6 +220,8 @@ module {
       y2 == t;
     };
 
+    /// Returns `true` when `P1` and `P2` represent the same curve point.
+    /// Compares without forcing normalisation of either input.
     public func isEqual(P1 : Jacobi, P2 : Jacobi) : Bool {
       let zero1 = isZero(P1);
       let zero2 = isZero(P2);
@@ -176,17 +241,20 @@ module {
       t1 == t2;
     };
 
+    /// Returns the additive inverse `-P` of a Jacobi point.
     public func neg((x, y, z) : Jacobi) : Jacobi = (x, Fp.neg(y), z);
 
+    /// Doubles the Jacobi point `P` (i.e. returns `P + P`). Uses an
+    /// optimised formula when the curve has `a = -3` (prime256v1).
     public func dbl((x, y, z) : Jacobi) : Jacobi {
       if (z == #fp(0)) return zeroJ;
 
       // Special optimized formula for curves with a=-3 (like prime256v1)
       // Uses complete formulas from https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html
 
-      var x2 = Fp.sqr(x);
-      var y2 = Fp.sqr(y);
-      var z2 = Fp.sqr(z);
+      let x2 = Fp.sqr(x);
+      let y2 = Fp.sqr(y);
+      let z2 = Fp.sqr(z);
 
       // S = 4*x*y^2
       var S = Fp.mul(x, y2);
@@ -199,8 +267,8 @@ module {
 
       if (a_ != #fp(0)) {
         // For prime256v1, a = -3
-        var z4 = Fp.sqr(z2);
-        var az4 = Fp.mul(a_, z4);
+        let z4 = Fp.sqr(z2);
+        let az4 = Fp.mul(a_, z4);
         M := Fp.add(M, az4); // 3*x^2 + a*z^4
       };
 
@@ -226,6 +294,8 @@ module {
       return (rx, ry, rz);
     };
 
+    /// Adds two Jacobi points. Handles the point-at-infinity and
+    /// equal-input cases by delegating to `dbl` or returning `zeroJ`.
     public func add((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi {
       if (pz == #fp(0)) return (qx, qy, qz);
       if (qz == #fp(0)) return (px, py, pz);
@@ -301,6 +371,7 @@ module {
       (rx, ry, rz);
     };
 
+    /// Subtracts the Jacobi point `Q` from `P` (i.e. returns `P + (-Q)`).
     public func sub((px, py, pz) : Jacobi, (qx, qy, qz) : Jacobi) : Jacobi = add((px, py, pz), (qx, Fp.neg(qy), qz));
 
     func mul_standard(a : Jacobi, #fr(k) : FrElt) : Jacobi {
@@ -325,11 +396,15 @@ module {
       return result;
     };
 
+    /// Returns the normalised affine `(x, y, z)` triple as hex strings.
+    /// Intended for debug printing.
     public func hexPoint(p : Jacobi) : (Text, Text, Text) {
       let (x, y, z) = normalize(p);
       (Hex.fromNat(Fp.toNat(x)), Hex.fromNat(Fp.toNat(y)), Hex.fromNat(Fp.toNat(z)));
     };
 
+    /// Returns the normalised affine `(x, y, z)` triple as `Nat` values.
+    /// Intended for debug printing.
     public func debugPoint(p : Jacobi) : (Nat, Nat, Nat) {
       let (x, y, z) = normalize(p);
       (Fp.toNat(x), Fp.toNat(y), Fp.toNat(z));
@@ -360,16 +435,16 @@ module {
       let naf0 = Binary.toNafWidth(u.0, w);
       let naf1 = Binary.toNafWidth(u.1, w);
       let maxBit = Nat.max(naf0.size(), naf1.size());
-      var tbl0 = List.empty<Jacobi>();
-      var tbl1 = List.empty<Jacobi>();
-      List.add(tbl0, x);
-      List.add(tbl1, mulLambda(x));
+      let tbl0 = List.empty<Jacobi>();
+      let tbl1 = List.empty<Jacobi>();
+      tbl0.add(x);
+      tbl1.add(mulLambda(x));
       do {
         let P2 = dbl(x);
         var j = 1;
         while (j < tblSize) {
-          List.add(tbl0, add(List.at(tbl0, j - 1 : Nat), P2));
-          List.add(tbl1, mulLambda(List.at(tbl0, j)));
+          tbl0.add(add(tbl0.at(j - 1 : Nat), P2));
+          tbl1.add(mulLambda(tbl0.at(j)));
           j += 1;
         };
       };
@@ -379,10 +454,10 @@ module {
         let n = naf[i];
         if (n > 0) {
           let idx = Int.abs(n - 1) / 2;
-          z := add(z, List.at(tbl, idx));
+          z := add(z, tbl.at(idx));
         } else if (n < 0) {
           let idx = Int.abs(-n - 1) / 2;
-          z := add(z, neg(List.at(tbl, idx)));
+          z := add(z, neg(tbl.at(idx)));
         };
       };
       do {
@@ -399,6 +474,11 @@ module {
     };
 
     // Main multiplication function that chooses the appropriate algorithm
+    /// Computes `scalar * x` using GLV decomposition on secp256k1 and
+    /// double-and-add on prime256v1. Negative scalars (those above
+    /// `r/2`) are handled by negating both the input and the result.
+    /// Returns the point at infinity when the scalar is zero or `x` is
+    /// already the point at infinity.
     public func mul(x : Jacobi, scalar : FrElt) : Jacobi {
       let #fr(k) = scalar;
 
@@ -432,8 +512,10 @@ module {
       };
     };
 
+    /// Computes `x * G`, the scalar multiple of the curve generator.
     public func mul_base(x : FrElt) : Jacobi = mul(G_, x);
 
+    /// Debug-prints a `Point` via `Debug.print`.
     public func putPoint(a : Point) {
       switch (a) {
         case (#zero) {
@@ -445,18 +527,25 @@ module {
       };
     };
 
+    /// Debug-prints a `Jacobi` point via `Debug.print`.
     public func putJacobi((x, y, z) : Jacobi) {
       Debug.print("(0x" # Hex.fromNat(Fp.toNat(x)) # ", 0x" # Hex.fromNat(Fp.toNat(y)) # ", 0x" # Hex.fromNat(Fp.toNat(z)) # ")");
     };
 
+    /// Debug-prints a signature `(r, s)` via `Debug.print`.
     public func putSig((x, y) : (FrElt, FrElt)) {
       Debug.print("(0x" # Hex.fromNat(Fr.toNat(x)) # ", 0x" # Hex.fromNat(Fr.toNat(y)) # ")");
     };
   };
 
+  /// Returns a fresh `Curve` for secp256k1.
   public func secp256k1() : Curve = Curve(#secp256k1);
+  /// Returns a fresh `Curve` for prime256v1 (NIST P-256).
   public func prime256v1() : Curve = Curve(#prime256v1);
 
+  /// Returns the curve parameters for `kind` (field prime, order,
+  /// generator, coefficients `a` / `b`, and the precomputed `(p+1)/4`
+  /// exponent used for square roots).
   public func getParams(kind : CurveKind) : CurveParams {
     switch (kind) {
       case (#secp256k1) ({

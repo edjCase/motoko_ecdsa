@@ -1,18 +1,31 @@
+/// Internal helpers shared between `PrivateKey` and `PublicKey` for
+/// converting key bytes to and from hex / base64 / PEM text.
+///
+/// ```motoko name=import
+/// import KeyCommon "mo:ecdsa/KeyCommon";
+/// ```
+
+import Iter "mo:core@2/Iter";
+import Result "mo:core@2/Result";
+import Text "mo:core@2/Text";
+
 import BaseX "mo:base-x-encoder@2";
-import Text "mo:core@1/Text";
-import Result "mo:core@1/Result";
-import Iter "mo:core@1/Iter";
 import PeekableIter "mo:xtended-iter@1/PeekableIter";
+
 import Curve "Curve";
 
 module {
 
+  /// Common shape for byte-encoding inputs that include `#raw`. The
+  /// payload carries the curve to use for parsing.
   public type CommonInputByteEncoding = {
     #raw : {
       curve : Curve.Curve;
     };
   };
 
+  /// Common shape for text-encoding outputs (hex or base64), parameterised
+  /// over the inner byte encoding produced for the key.
   public type CommonOutputTextFormat<OutputByteEncoding> = {
     #base64 : {
       byteEncoding : OutputByteEncoding;
@@ -24,6 +37,8 @@ module {
     };
   };
 
+  /// Common shape for text-encoding inputs (hex or base64), parameterised
+  /// over the inner byte encoding the parsed bytes will be interpreted as.
   public type CommonInputTextFormat<TInputTypeEncoding> = {
     #base64 : {
       byteEncoding : TInputTypeEncoding;
@@ -56,6 +71,8 @@ module {
     };
   };
 
+  /// Encodes raw key bytes as hex, base64, or PEM-armored base64.
+  /// `format` carries the keyType for the PEM `BEGIN/END` lines.
   // Generic function to convert key bytes to text format
   public func toText(
     bytes : [Nat8],
@@ -68,9 +85,9 @@ module {
         let base64 = BaseX.toBase64(bytes.vals(), #standard({ includePadding = true }));
 
         let iter = PeekableIter.fromIter(base64.chars());
-        var formatted = Text.fromIter(Iter.take(iter, 64));
+        var formatted = Text.fromIter(iter.take(64));
         while (iter.peek() != null) {
-          formatted #= "\n" # Text.fromIter(Iter.take(iter, 64));
+          formatted #= "\n" # Text.fromIter(iter.take(64));
         };
 
         "-----BEGIN " # keyType # " KEY-----\n" # formatted # "\n-----END " # keyType # " KEY-----\n";
@@ -78,6 +95,10 @@ module {
     };
   };
 
+  /// Decodes hex, base64, or PEM-armored base64 text into key bytes,
+  /// then forwards them to `fromBytes` to build the typed key.
+  /// Returns `#err(msg)` on text-format errors or whatever `fromBytes`
+  /// returns.
   // Generic function to convert text to key bytes
   public func fromText<TKey>(
     value : Text,
@@ -134,10 +155,15 @@ module {
   // Helper function to extract content from PEM format for public keys
   private func extractPEMContent(pem : Text, keyType : Text) : Result.Result<Text, Text> {
     let header = "-----BEGIN " # keyType # " KEY-----";
-    let ?headerTrimmedPem = Text.stripStart(pem, #text(header)) else return #err("Invalid PEM format: missing header " # header);
-    let footer = "-----END " # keyType # " KEY-----\n";
-    let ?trimmedPem = Text.stripEnd(headerTrimmedPem, #text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
-    #ok(Text.join("", Text.split(trimmedPem, #char('\n'))));
+    let ?headerTrimmedPem = pem.stripStart(#text(header)) else return #err("Invalid PEM format: missing header " # header);
+    let footer = "-----END " # keyType # " KEY-----";
+    // Normalize line endings (strip CRs) and any trailing newlines so the
+    // footer match works whether the input uses LF or CRLF and whether or
+    // not it has a trailing newline after the footer.
+    let withoutCRs = Text.replace(headerTrimmedPem, #char('\r'), "");
+    let withoutTrailingNewlines = Text.trimEnd(withoutCRs, #char('\n'));
+    let ?trimmedPem = withoutTrailingNewlines.stripEnd(#text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
+    #ok(Text.replace(trimmedPem, #char('\n'), ""));
   };
 
 };

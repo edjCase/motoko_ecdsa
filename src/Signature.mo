@@ -1,27 +1,43 @@
-import Curve "./Curve";
-import Nat8 "mo:core@1/Nat8";
-import Util "Util";
+/// ECDSA signatures: storage, raw / DER encoding, and hex / base64 text
+/// formatting.
+///
+/// ```motoko name=import
+/// import Signature "mo:ecdsa/Signature";
+/// ```
+
+import Int "mo:core@2/Int";
+import Iter "mo:core@2/Iter";
+import List "mo:core@2/List";
+import Nat "mo:core@2/Nat";
+import Nat8 "mo:core@2/Nat8";
+import Result "mo:core@2/Result";
+
 import ASN1 "mo:asn1@3";
-import Int "mo:core@1/Int";
-import Iter "mo:core@1/Iter";
-import Result "mo:core@1/Result";
-import Nat "mo:core@1/Nat";
 import BaseX "mo:base-x-encoder@2";
-import NatX "mo:xtended-numbers@2/NatX";
-import List "mo:core@1/List";
 import Buffer "mo:buffer@0";
+import NatX "mo:xtended-numbers@2/NatX";
+
+import Curve "./Curve";
+import Util "Util";
 
 module {
+  /// Wire formats accepted by `fromBytes`.
+  /// `#raw` is `r ‖ s`, each as a 32-byte big-endian integer.
+  /// `#der` is the X.509 DER encoding `SEQUENCE { INTEGER r, INTEGER s }`.
   public type InputByteEncoding = {
     #der;
     #raw;
   };
 
+  /// Wire formats produced by `toBytes`. Same shape as
+  /// `InputByteEncoding`.
   public type OutputByteEncoding = {
     #der;
     #raw;
   };
 
+  /// Text formats produced by `toText`: hex or base64, each carrying an
+  /// inner `OutputByteEncoding`.
   public type OutputTextFormat = {
     #base64 : {
       byteEncoding : OutputByteEncoding;
@@ -33,6 +49,8 @@ module {
     };
   };
 
+  /// Text formats accepted by `fromText`: hex (with input format hints)
+  /// or base64, each carrying an inner `InputByteEncoding`.
   public type InputTextFormat = {
     #base64 : {
       byteEncoding : InputByteEncoding;
@@ -43,13 +61,27 @@ module {
     };
   };
 
+  /// An ECDSA signature `(r, s)` over `curve`.
+  ///
+  /// The constructor preserves the inputs verbatim on `original_r` /
+  /// `original_s`, and additionally exposes the canonical low-S form on
+  /// `r` / `s` (BIP 62: when `s_ > r/2`, the stored `s` is `r - s_`).
+  /// `equal` and the cryptographic operations work on the low-S form;
+  /// the `original_*` fields are kept so that re-encoded signatures
+  /// match the original byte-for-byte when round-tripped through
+  /// `toBytes`.
   public class Signature(r_ : Nat, s_ : Nat, curve_ : Curve.Curve) {
+    /// The curve this signature is over.
     public let curve = curve_;
 
+    /// The `r` value as supplied to the constructor (also equal to `r`).
     public let original_r = r_;
+    /// The `s` value as supplied to the constructor, before low-S
+    /// normalisation.
     public let original_s = s_;
 
-    // Normalized values for cryptographic operations
+    /// The signature components used for verification: `r` is unchanged,
+    /// `s` is the low-S canonical form (`min(s_, r - s_)`).
     public let (r, s) : (Nat, Nat) = if (curve.Fr.toNat(#fr(s_)) < curve.params.rHalf) {
       (r_, s_);
     } else {
@@ -57,10 +89,19 @@ module {
       (r_, s);
     };
 
+    /// Returns `true` when `other` has the same curve and the same
+    /// normalised `(r, s)` pair.
     public func equal(other : Signature) : Bool {
-      return curve.equal(other.curve) and r == other.r and s == other.s;
+      curve.equal(other.curve) and r == other.r and s == other.s;
     };
 
+    /// Serialises the signature to bytes.
+    ///
+    /// - `#raw` returns 64 bytes: `r ‖ s`, each as a 32-byte big-endian
+    ///   integer (left-padded with zeros if needed). The `original_*`
+    ///   values are written, not the low-S form.
+    /// - `#der` returns the X.509 DER encoding
+    ///   `SEQUENCE { INTEGER r, INTEGER s }`.
     public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
       switch (encoding) {
         case (#raw) {
@@ -72,14 +113,14 @@ module {
           let encodeAndPad = func(value : Nat) {
             let natBuffer = List.empty<Nat8>();
             NatX.toNatBytesBuffer(Buffer.fromList(natBuffer), value, #msb);
-            let padding : Nat = size - List.size(natBuffer);
+            let padding : Nat = size - natBuffer.size();
             // Left-pad with zeros if needed
             if (padding > 0) {
               for (i in Nat.range(0, padding)) {
-                List.add<Nat8>(buf, 0);
+                buf.add(0 : Nat8);
               };
             };
-            List.addAll(buf, List.values(natBuffer));
+            buf.addAll(natBuffer.values());
           };
 
           // Encode r
@@ -87,7 +128,7 @@ module {
           // Encode s
           encodeAndPad(original_s);
 
-          List.toArray(buf);
+          buf.toArray();
         };
         case (#der) {
           let asn1Value : ASN1.ASN1Value = #sequence([#integer(original_r), #integer(original_s)]);
@@ -96,6 +137,9 @@ module {
       };
     };
 
+    /// Serialises the signature to text in the chosen `format` (hex or
+    /// base64), wrapping the bytes produced by `toBytes` in the inner
+    /// `byteEncoding`.
     public func toText(format : OutputTextFormat) : Text {
       switch (format) {
         case (#hex(hex)) {
@@ -110,15 +154,23 @@ module {
     };
   };
 
+  /// Decodes a `Signature` from a byte stream.
+  ///
+  /// `encoding` selects between `#raw` (`r ‖ s`, 32 bytes each, big
+  /// endian) and `#der` (`SEQUENCE { INTEGER r, INTEGER s }`). Returns
+  /// `#err(msg)` on malformed input or negative `r` / `s` in the DER
+  /// form.
   public func fromBytes(bytes : Iter.Iter<Nat8>, curve : Curve.Curve, encoding : InputByteEncoding) : Result.Result<Signature, Text> {
     switch (encoding) {
       case (#raw) {
         // Extract r and s values
-        let rBytes = Iter.take(bytes, 32);
-
-        let ?r = Util.toNatAsBigEndian(rBytes) else return #err("Invalid signature: failed to decode r from bytes");
-        let sBytes = Iter.take(bytes, 32);
-        let ?s = Util.toNatAsBigEndian(sBytes) else return #err("Invalid signature: failed to decode s from bytes");
+        let raw = Iter.toArray(bytes);
+        if (raw.size() != 64) {
+          return #err("Invalid signature: expected exactly 64 bytes for raw encoding");
+        };
+        let rawIter = raw.vals();
+        let ?r = Util.toNatAsBigEndian(rawIter.take(32)) else return #err("Invalid signature: failed to decode r from bytes");
+        let ?s = Util.toNatAsBigEndian(rawIter.take(32)) else return #err("Invalid signature: failed to decode s from bytes");
 
         #ok(Signature(r, s, curve));
       };
@@ -141,6 +193,11 @@ module {
     };
   };
 
+  /// Decodes a `Signature` from a textual representation.
+  ///
+  /// `encoding` selects the text format (`#hex` or `#base64`) and the
+  /// inner byte encoding (`#raw` or `#der`). Returns `#err(msg)` on
+  /// malformed text or invalid inner bytes (see `fromBytes`).
   public func fromText(value : Text, curve : Curve.Curve, encoding : InputTextFormat) : Result.Result<Signature, Text> {
     switch (encoding) {
       case (#hex({ byteEncoding; format })) {

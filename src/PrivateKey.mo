@@ -1,18 +1,29 @@
+/// ECDSA private keys: storage, ASN.1 / PEM encoding, and signing.
+///
+/// ```motoko name=import
+/// import PrivateKey "mo:ecdsa/PrivateKey";
+/// ```
+
+import Iter "mo:core@2/Iter";
+import Nat8 "mo:core@2/Nat8";
+import Result "mo:core@2/Result";
+import Runtime "mo:core@2/Runtime";
+import Text "mo:core@2/Text";
+
+import ASN1 "mo:asn1@3";
+import Sha256 "mo:sha2@0/Sha256";
+
 import Curve "./Curve";
 import PublicKey "./PublicKey";
 import Signature "./Signature";
-import Iter "mo:core@1/Iter";
-import Nat8 "mo:core@1/Nat8";
-import Sha256 "mo:sha2@0/Sha256";
-import Util "Util";
-import ASN1 "mo:asn1@3";
-import Text "mo:core@1/Text";
-import Result "mo:core@1/Result";
-import Runtime "mo:core@1/Runtime";
 import KeyCommon "KeyCommon";
+import Util "Util";
 
 module {
 
+  /// Byte encodings that can be wrapped inside PEM.
+  /// `#sec1` is the SEC1 EC private key DER (RFC 5915);
+  /// `#pkcs8` is the PKCS#8 `PrivateKeyInfo` DER (RFC 5208).
   public type PEMInputByteEncoding = {
     #sec1 : {
       curve : Curve.Curve;
@@ -20,36 +31,61 @@ module {
     #pkcs8; // PKCS#8 format
   };
 
+  /// All supported byte encodings for `fromBytes`. Adds `#raw` (32-byte
+  /// big-endian scalar) to the PEM-wrappable encodings.
   public type InputByteEncoding = PEMInputByteEncoding or KeyCommon.CommonInputByteEncoding;
 
+  /// Byte encodings that can be wrapped inside PEM on output.
+  /// Same shape as `PEMInputByteEncoding` but without the `curve` payload
+  /// (the curve is already known from the `PrivateKey` itself).
   public type PEMOutputByteEncoding = {
     #sec1; // SEC1 format
     #pkcs8; // PKCS#8 format
   };
 
+  /// All supported byte encodings for `toBytes`. Adds `#raw` (32-byte
+  /// big-endian scalar) to the PEM-wrappable encodings.
   public type OutputByteEncoding = PEMOutputByteEncoding or {
     #raw;
   };
 
+  /// All supported text formats for `toText`: hex, base64 (each carrying
+  /// an inner `OutputByteEncoding`), or PEM-armored DER.
   public type OutputTextFormat = KeyCommon.CommonOutputTextFormat<OutputByteEncoding> or {
     #pem : {
       byteEncoding : PEMOutputByteEncoding;
     };
   };
 
+  /// All supported text formats for `fromText`: hex, base64 (each carrying
+  /// an inner `InputByteEncoding`), or PEM-armored DER.
   public type InputTextFormat = KeyCommon.CommonInputTextFormat<InputByteEncoding> or {
     #pem : {
       byteEncoding : PEMInputByteEncoding;
     };
   };
 
+  /// An ECDSA private key consisting of the scalar `d` and the curve it
+  /// was generated for. Construct via `PrivateKey(d, curve)` or one of the
+  /// `from*` parsers.
+  ///
+  /// `d` must be in the range `1 .. r-1` for signing to succeed, where
+  /// `r` is the curve order. The constructor itself does not enforce
+  /// this.
   public class PrivateKey(
     d_ : Nat,
     curve_ : Curve.Curve,
   ) {
+    /// The scalar value of this key, `1 <= d < r`.
     public let d = d_;
+    /// The curve this key was generated for.
     public let curve = curve_;
 
+    /// Derives the corresponding `PublicKey` by computing `d * G`, where
+    /// `G` is the curve generator.
+    ///
+    /// Traps if the multiplication produces the point at infinity, which
+    /// can only happen when `d` is `0` or a multiple of the curve order.
     public func getPublicKey() : PublicKey.PublicKey {
       switch (curve.fromJacobi(curve.mul_base(#fr(d)))) {
         case (#zero) Runtime.trap("Unable to get public key from private key, point was zero");
@@ -61,6 +97,15 @@ module {
       };
     };
 
+    /// Hashes `msg` with SHA-256 and produces an ECDSA signature.
+    ///
+    /// `rand` must yield at least 32 bytes of cryptographically secure
+    /// randomness; they are used as the per-signature nonce `k`. Reusing
+    /// the same `rand` for two different messages leaks the private key.
+    ///
+    /// Returns `#err(msg)` if `rand` is too short, if the derived nonce
+    /// or the resulting `r` happens to be `0` (negligible probability),
+    /// or if `msg` cannot be drained for hashing.
     public func sign(
       msg : Iter.Iter<Nat8>,
       rand : Iter.Iter<Nat8>,
@@ -72,6 +117,11 @@ module {
       signHashed(hashedMsg.vals(), rand);
     };
 
+    /// Like `sign`, but takes an already-hashed message. `hashedMsg` must
+    /// yield exactly 32 bytes (the SHA-256 digest of the original
+    /// message); only the first 32 bytes are consumed.
+    ///
+    /// Returns `#err(msg)` for the same reasons as `sign`.
     public func signHashed(
       hashedMsg : Iter.Iter<Nat8>,
       rand : Iter.Iter<Nat8>,
@@ -89,6 +139,9 @@ module {
       #ok(Signature.Signature(r, s, curve));
     };
 
+    /// Serialises the key to text in the chosen `format` (hex, base64, or
+    /// PEM-armored DER). For PEM, the wrapper line uses `EC PRIVATE KEY`
+    /// for SEC1 and `PRIVATE KEY` for PKCS#8.
     public func toText(format : OutputTextFormat) : Text {
       switch (format) {
         case (#hex(hex)) {
@@ -110,6 +163,12 @@ module {
       };
     };
 
+    /// Serialises the key to bytes in the chosen `encoding`.
+    ///
+    /// - `#raw` returns the 32-byte big-endian scalar.
+    /// - `#sec1` returns the DER-encoded SEC1 EC private key (RFC 5915).
+    /// - `#pkcs8` returns the DER-encoded PKCS#8 `PrivateKeyInfo`
+    ///   (RFC 5208), wrapping the SEC1 form.
     public func toBytes(encoding : OutputByteEncoding) : [Nat8] {
       switch (encoding) {
         case (#sec1) {
@@ -166,6 +225,13 @@ module {
 
   };
 
+  /// Generates a `PrivateKey` from a stream of random bytes.
+  ///
+  /// Consumes 32 bytes of `entropy`, interprets them as a big-endian
+  /// integer, and reduces modulo the curve order. Returns
+  /// `#err("Not enough entropy bytes")` if fewer than 32 bytes are
+  /// available, or `#err("Bad entropy, the value is 0")` if the reduced
+  /// scalar is zero.
   public func generate(
     entropy : Iter.Iter<Nat8>,
     curve : Curve.Curve,
@@ -177,11 +243,17 @@ module {
     };
   };
 
+  /// Decodes a `PrivateKey` from a byte stream in the chosen `encoding`.
+  ///
+  /// See `InputByteEncoding` for the supported wire formats. Returns
+  /// `#err(msg)` on malformed input, an out-of-range scalar (`d == 0`
+  /// or `d >= r`), an unknown curve OID in the SEC1 / PKCS#8 wrapper, or
+  /// any structural mismatch in the DER tree.
   public func fromBytes(bytes : Iter.Iter<Nat8>, encoding : InputByteEncoding) : Result.Result<PrivateKey, Text> {
     switch (encoding) {
       case (#raw({ curve })) {
 
-        let ?d = Util.toNatAsBigEndian(Iter.take(bytes, 32)) else return #err("Invalid private key: failed to decode d from bytes");
+        let ?d = Util.toNatAsBigEndian(bytes.take(32)) else return #err("Invalid private key: failed to decode d from bytes");
 
         // Validate the key is in range for the curve
         if (d == 0 or d >= curve.params.r) {
@@ -196,7 +268,7 @@ module {
           case (#ok(keyAsn1)) keyAsn1;
         };
         let #sequence(keySequence) = keyAsn1 else return #err("Invalid DER format: expected sequence for key bytes");
-        if (keySequence.size() < 2) return #err("Invalid DER format: expected key sequence with 4 elements, got " # debug_show (keySequence.size()));
+        if (keySequence.size() < 2) return #err("Invalid DER format: expected key sequence with at least 2 elements, got " # debug_show (keySequence.size()));
         // First element is the version (should be 1)
         let #integer(1) = keySequence[0] else return #err("Invalid DER format: expected version 1, got " # debug_show (keySequence[0]));
         // Second element is the private key as OCTET STRING
@@ -252,6 +324,11 @@ module {
     };
   };
 
+  /// Decodes a `PrivateKey` from a textual representation.
+  ///
+  /// See `InputTextFormat` for the supported text formats. Returns
+  /// `#err(msg)` on malformed text (bad hex/base64/PEM framing) or
+  /// invalid inner bytes (see `fromBytes`).
   public func fromText(value : Text, format : InputTextFormat) : Result.Result<PrivateKey, Text> {
     let (internalFormat, byteEncoding) = switch (format) {
       case (#hex({ format; byteEncoding })) (#hex({ format }), byteEncoding);
