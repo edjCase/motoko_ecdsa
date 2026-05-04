@@ -150,7 +150,7 @@ module {
         // 2 - nxLo (mod 2^256), avoiding negative intermediates.
         let twoMinus = if (nxLo <= 2) (2 - nxLo : Nat) else (
           // 2^256 + 2 - nxLo
-          (Nat.bitshiftLeft(1, 256) + 2 - nxLo : Nat)
+          (Nat.bitshiftLeft(1, 256) + 2 - nxLo : Nat),
         );
         let xnew = x * twoMinus;
         x := xnew - Nat.bitshiftLeft(Nat.bitshiftRight(xnew, 256), 256);
