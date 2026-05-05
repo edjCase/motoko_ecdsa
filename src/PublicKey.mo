@@ -77,14 +77,17 @@ module {
   /// An ECDSA public key represented as the affine point `(x, y)` on
   /// `curve`.
   ///
-  /// The constructor does not validate that `(x, y)` lies on the curve;
-  /// callers are expected to use the `from*` parsers when ingesting
-  /// untrusted data.
+  /// The constructor enforces the coordinate range `0 <= x, y < p` (and
+  /// traps via `assert` if violated), but does not validate that
+  /// `(x, y)` lies on the curve; callers are expected to use the
+  /// `from*` parsers when ingesting untrusted data.
   public class PublicKey(
     x_ : Nat,
     y_ : Nat,
     curve_ : Curve.Curve,
   ) {
+    assert (x_ < curve_.params.p);
+    assert (y_ < curve_.params.p);
     /// The affine x-coordinate of this point, `0 <= x < p`.
     public let x = x_;
     /// The affine y-coordinate of this point, `0 <= y < p`.
