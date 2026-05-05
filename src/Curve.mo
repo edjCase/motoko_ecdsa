@@ -102,11 +102,11 @@ module {
     func reduceSecp(t : Nat) : Nat {
       // First pass: t_hi < 2^256, so t_hi * C < 2^289 and u < 2^290.
       let tHi = Nat.bitshiftRight(t, 256);
-      let tLo = t - Nat.bitshiftLeft(tHi, 256);
+      let tLo : Nat = t - Nat.bitshiftLeft(tHi, 256);
       let u = tLo + tHi * SECP_C;
       // Second pass: u_hi < 2^34, so u_hi * C < 2^67 and v < 2^256 + 2^67.
       let uHi = Nat.bitshiftRight(u, 256);
-      let uLo = u - Nat.bitshiftLeft(uHi, 256);
+      let uLo : Nat = u - Nat.bitshiftLeft(uHi, 256);
       let v = uLo + uHi * SECP_C;
       if (v >= p_) v - p_ else v;
     };
@@ -146,7 +146,7 @@ module {
       var k : Nat = 1;
       while (k < 256) {
         let nx = p_ * x;
-        let nxLo = nx - Nat.bitshiftLeft(Nat.bitshiftRight(nx, 256), 256);
+        let nxLo : Nat = nx - Nat.bitshiftLeft(Nat.bitshiftRight(nx, 256), 256);
         // 2 - nxLo (mod 2^256), avoiding negative intermediates.
         let twoMinus = if (nxLo <= 2) (2 - nxLo : Nat) else (
           // 2^256 + 2 - nxLo
@@ -176,9 +176,9 @@ module {
       let #fp(av) = a_;
       // toMont(av) = REDC(av * R2M); inline since redcP isn't defined yet.
       let t = av * R2M;
-      let tLo = t - Nat.bitshiftLeft(Nat.bitshiftRight(t, 256), 256);
+      let tLo : Nat = t - Nat.bitshiftLeft(Nat.bitshiftRight(t, 256), 256);
       let m = pPrime * tLo;
-      let mLo = m - Nat.bitshiftLeft(Nat.bitshiftRight(m, 256), 256);
+      let mLo : Nat = m - Nat.bitshiftLeft(Nat.bitshiftRight(m, 256), 256);
       let u = Nat.bitshiftRight(t + mLo * p_, 256);
       if (u >= p_) u - p_ else u;
     } else 0;
@@ -186,9 +186,9 @@ module {
     // Montgomery reduction. Given t with 0 <= t < p * R, returns
     // t * R^{-1} mod p, fully reduced (< p).
     func redcP(t : Nat) : Nat {
-      let tLo = t - Nat.bitshiftLeft(Nat.bitshiftRight(t, 256), 256);
+      let tLo : Nat = t - Nat.bitshiftLeft(Nat.bitshiftRight(t, 256), 256);
       let m = pPrime * tLo;
-      let mLo = m - Nat.bitshiftLeft(Nat.bitshiftRight(m, 256), 256);
+      let mLo : Nat = m - Nat.bitshiftLeft(Nat.bitshiftRight(m, 256), 256);
       let u = Nat.bitshiftRight(t + mLo * p_, 256);
       if (u >= p_) u - p_ else u;
     };
@@ -203,7 +203,7 @@ module {
       if (s >= p_) s - p_ else s;
     };
     func subMontP(a : Nat, b : Nat) : Nat = if (a >= b) a - b else a + p_ - b;
-    func negMontP(a : Nat) : Nat = if (a == 0) 0 else p_ - a;
+    func _negMontP(a : Nat) : Nat = if (a == 0) 0 else p_ - a;
 
     /// Returns the bit-width of the curve's field. Both supported curves
     /// are 256-bit, so the only possible value is `#b256`. Reserved as a
