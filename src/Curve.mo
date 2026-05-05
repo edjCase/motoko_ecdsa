@@ -114,11 +114,11 @@ module {
     // Per-curve `Fp.mul` and `Fp.sqr`: secp256k1 uses the pseudo-Mersenne
     // shortcut above; prime256v1 falls back to generic `Field.mul_`.
     let fpMulNat : (Nat, Nat) -> Nat = switch (kind) {
-      case (#secp256k1) (func(x, y) = if (x < p_ and y < p_) reduceSecp(x * y) else Field.mul_(x, y, p_));
+      case (#secp256k1) (func(x, y) = reduceSecp(x * y));
       case (#prime256v1) (func(x, y) = Field.mul_(x, y, p_));
     };
     let fpSqrNat : Nat -> Nat = switch (kind) {
-      case (#secp256k1) (func(x) = if (x < p_) reduceSecp(x * x) else Field.sqr_(x, p_));
+      case (#secp256k1) (func(x) = reduceSecp(x * x));
       case (#prime256v1) (func(x) = Field.sqr_(x, p_));
     };
 
