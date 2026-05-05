@@ -533,7 +533,7 @@ module {
     type JacobiM = (Nat, Nat, Nat);
     let zeroJM : JacobiM = (0, 0, 0);
 
-    func isZeroJM((_, _, z) : JacobiM) : Bool = z == 0;
+    func _isZeroJM((_, _, z) : JacobiM) : Bool = z == 0;
 
     func dblM((x, y, z) : JacobiM) : JacobiM {
       if (z == 0) return zeroJM;
