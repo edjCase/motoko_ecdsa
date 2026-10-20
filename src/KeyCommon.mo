@@ -160,10 +160,10 @@ module {
     // Normalize line endings (strip CRs) and any trailing newlines so the
     // footer match works whether the input uses LF or CRLF and whether or
     // not it has a trailing newline after the footer.
-    let withoutCRs = Text.replace(headerTrimmedPem, #char('\r'), "");
-    let withoutTrailingNewlines = Text.trimEnd(withoutCRs, #char('\n'));
+    let withoutCRs = headerTrimmedPem.replace(#char('\r'), "");
+    let withoutTrailingNewlines = withoutCRs.trimEnd(#char('\n'));
     let ?trimmedPem = withoutTrailingNewlines.stripEnd(#text(footer)) else return #err("Invalid PEM format: missing footer " # footer);
-    #ok(Text.replace(trimmedPem, #char('\n'), ""));
+    #ok(trimmedPem.replace(#char('\n'), ""));
   };
 
 };

@@ -164,7 +164,7 @@ module {
     switch (encoding) {
       case (#raw) {
         // Extract r and s values
-        let raw = Iter.toArray(bytes);
+        let raw = bytes.toArray();
         if (raw.size() != 64) {
           return #err("Invalid signature: expected exactly 64 bytes for raw encoding");
         };
