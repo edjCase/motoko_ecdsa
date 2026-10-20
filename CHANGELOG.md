@@ -3,6 +3,7 @@
 ## 8.0.2
 
 * Bumped moc toolchain to 2.0.0 and pocket-ic to 15.0.0
+* Added `[requirements]` moc >= 1.6.0 (required by core 2.6.2)
 * Bumped sha2 to 0.3.0 and core to 2.6.2
 * Bumped dev dependencies test to 2.1.2 and bench-helper to 0.0.4
 * Fixed compiler warnings (`.vals()` -> `.values()`, dot notation)

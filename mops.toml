@@ -28,6 +28,9 @@ license = "Apache-2.0"
 test = "2.1.2"
 bench-helper = "0.0.4"
 
+[requirements]
+moc = "1.6.0"
+
 [toolchain]
 moc = "2.0.0"
 pocket-ic = "15.0.0"
