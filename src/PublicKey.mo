@@ -111,7 +111,7 @@ module {
       let hashAlg = switch (curve.getBitSize()) {
         case (#b256) #sha256;
       };
-      let hashedMsg = Sha256.fromIter(hashAlg, msg).vals();
+      let hashedMsg = Sha256.fromIter(hashAlg, msg).values();
       verifyHashed(hashedMsg, sig);
     };
 
@@ -173,8 +173,8 @@ module {
           let yCoord = Array.tabulate<Nat8>(32, func(i) { bytes[i + 33] });
 
           // Base64URL encode coordinates
-          let xB64 = BaseX.toBase64(xCoord.vals(), #url({ includePadding = false }));
-          let yB64 = BaseX.toBase64(yCoord.vals(), #url({ includePadding = false }));
+          let xB64 = BaseX.toBase64(xCoord.values(), #url({ includePadding = false }));
+          let yB64 = BaseX.toBase64(yCoord.values(), #url({ includePadding = false }));
 
           // Get curve name
           let curveName = switch (curve.kind) {
@@ -305,7 +305,7 @@ module {
         switch (asn1) {
           case (#err(e)) return #err("Invalid ANS1 DER format: " # e);
           case (#ok(#bitString({ data = keyBytes; unusedBits = 0 }))) {
-            fromBytes(keyBytes.vals(), #raw({ curve }));
+            fromBytes(keyBytes.values(), #raw({ curve }));
           };
           case (#ok(_)) return #err("Invalid DER format: expected sequence");
         };
@@ -337,7 +337,7 @@ module {
             // Second element is the public key as BIT STRING
             let #bitString({ data = keyBytes; unusedBits = 0 }) = sequence[1] else return #err("Invalid DER format: expected BIT STRING");
 
-            fromBytes(keyBytes.vals(), #raw({ curve }));
+            fromBytes(keyBytes.values(), #raw({ curve }));
           };
           case (#ok(_)) return #err("Invalid DER format: expected sequence");
         };

@@ -79,10 +79,10 @@ module {
     format : InternalOutputTextFormat,
   ) : Text {
     switch (format) {
-      case (#hex({ format })) BaseX.toHex(bytes.vals(), format);
-      case (#base64({ format })) BaseX.toBase64(bytes.vals(), format);
+      case (#hex({ format })) BaseX.toHex(bytes.values(), format);
+      case (#base64({ format })) BaseX.toBase64(bytes.values(), format);
       case (#pem({ keyType })) {
-        let base64 = BaseX.toBase64(bytes.vals(), #standard({ includePadding = true }));
+        let base64 = BaseX.toBase64(bytes.values(), #standard({ includePadding = true }));
 
         let iter = PeekableIter.fromIter(base64.chars());
         var formatted = Text.fromIter(iter.take(64));
@@ -110,7 +110,7 @@ module {
         // Convert hex to bytes
         switch (BaseX.fromHex(value, format)) {
           case (#ok(bytes)) {
-            switch (fromBytes(bytes.vals())) {
+            switch (fromBytes(bytes.values())) {
               case (#ok(key)) #ok(key);
               case (#err(e)) #err("Invalid key bytes: " # e);
             };
@@ -123,7 +123,7 @@ module {
         // Convert base64 to bytes
         switch (BaseX.fromBase64(value)) {
           case (#ok(bytes)) {
-            switch (fromBytes(bytes.vals())) {
+            switch (fromBytes(bytes.values())) {
               case (#ok(key)) #ok(key);
               case (#err(e)) #err("Invalid key bytes: " # e);
             };
@@ -138,7 +138,7 @@ module {
           case (#ok(base64Content)) {
             switch (BaseX.fromBase64(base64Content)) {
               case (#ok(bytes)) {
-                switch (fromBytes(bytes.vals())) {
+                switch (fromBytes(bytes.values())) {
                   case (#ok(key)) #ok(key);
                   case (#err(e)) #err("Invalid key bytes: " # e);
                 };

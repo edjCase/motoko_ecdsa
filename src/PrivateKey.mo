@@ -114,7 +114,7 @@ module {
         case (#b256) #sha256;
       };
       let hashedMsg = Sha256.fromIter(hashAlg, msg);
-      signHashed(hashedMsg.vals(), rand);
+      signHashed(hashedMsg.values(), rand);
     };
 
     /// Like `sign`, but takes an already-hashed message. `hashedMsg` must
@@ -288,7 +288,7 @@ module {
         };
 
         // Validate the key
-        fromBytes(privateKeyBytes.vals(), #raw({ curve }));
+        fromBytes(privateKeyBytes.values(), #raw({ curve }));
       };
       case (#pkcs8) {
         switch (ASN1.fromBytes(bytes, #der)) {
@@ -316,7 +316,7 @@ module {
             // Third element is the private key as OCTET STRING
             let #octetString(keyBytes) = sequence[2] else return #err("Invalid DER format: expected private key as OCTET STRING");
 
-            fromBytes(keyBytes.vals(), #sec1({ curve }));
+            fromBytes(keyBytes.values(), #sec1({ curve }));
           };
           case (#ok(_)) return #err("Invalid DER format: expected sequence");
         };

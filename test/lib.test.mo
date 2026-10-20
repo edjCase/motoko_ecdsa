@@ -27,7 +27,7 @@ let curveKinds : [Curve.CurveKind] = [
   #secp256k1,
   #prime256v1,
 ];
-for (curveKind in curveKinds.vals()) {
+for (curveKind in curveKinds.values()) {
   let curve = Curve.Curve(curveKind);
 
   let (okP1, okP2, okP3, okP4) = switch (curveKind) {
@@ -100,9 +100,9 @@ for (curveKind in curveKinds.vals()) {
         "iterTest",
         func() {
           let a = [1, 2, 3, 4, 5];
-          let b = a.vals();
+          let b = a.values();
           let c = b;
-          let d = a.vals();
+          let d = a.values();
           consumeIter(b, [1, 2]);
           consumeIter(c, [3, 4]);
           consumeIter(d, [1, 2]);
@@ -163,7 +163,7 @@ for (curveKind in curveKinds.vals()) {
           ];
           for (i in tbl.keys()) {
             let (b, v) = tbl[i];
-            assert (Util.toNatAsBigEndian(b.vals()) == ?v);
+            assert (Util.toNatAsBigEndian(b.values()) == ?v);
             assert (Util.toBigEndianPad(b.size(), v) == b);
           };
           assert (Util.toBigEndianPad(1, 0) == ([0x00] : [Nat8]));
@@ -446,7 +446,7 @@ for (curveKind in curveKinds.vals()) {
           let hello : [Nat8] = [0x68, 0x65, 0x6c, 0x6c, 0x6f];
           // sha256('hello')
           let hashed : [Nat8] = [0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24];
-          assert (sha2(hello.vals()).toArray() == hashed);
+          assert (sha2(hello.values()).toArray() == hashed);
 
           let secBytes : [Nat8] = [0x83, 0xec, 0xb3, 0x98, 0x4a, 0x4f, 0x9f, 0xf0, 0x3e, 0x84, 0xd5, 0xf9, 0xc0, 0xd7, 0xf8, 0x88, 0xa8, 0x18, 0x33, 0x64, 0x30, 0x47, 0xac, 0xc5, 0x8e, 0xb6, 0x43, 0x1e, 0x01, 0xd9, 0xba, 0xc8];
           let expectedSecKey = 0x83ecb3984a4f9ff03e84d5f9c0d7f888a81833643047acc58eb6431e01d9bac8;
@@ -458,22 +458,22 @@ for (curveKind in curveKinds.vals()) {
               case (#prime256v1) PublicKey.PublicKey(0x5eef7fbe25dab17a4f30c0e6e6501b40ad0e53a9a3193695b0b10099e8af59ea, 0x7d7aab6919a4346c45a54d89861a043bae3c5d3a6fba5ce32241d20396f7e430, curve);
             };
 
-            let #ok(privateKey) = PrivateKey.generate(secBytes.vals(), C) else Runtime.unreachable();
+            let #ok(privateKey) = PrivateKey.generate(secBytes.values(), C) else Runtime.unreachable();
 
             assert (privateKey.d == expectedSecKey);
 
             let publicKey = privateKey.getPublicKey();
             assert (publicKey.equal(expectedPK));
 
-            let #ok(sig) = privateKey.signHashed(hashed.vals(), randBytes.vals()) else Runtime.unreachable();
-            let #ok(sig2) = privateKey.sign(hello.vals(), randBytes.vals()) else Runtime.unreachable();
+            let #ok(sig) = privateKey.signHashed(hashed.values(), randBytes.values()) else Runtime.unreachable();
+            let #ok(sig2) = privateKey.sign(hello.values(), randBytes.values()) else Runtime.unreachable();
             assert (sig.equal(sig2));
 
-            assert (publicKey.verify(hello.vals(), sig));
-            assert (publicKey.verifyHashed(hashed.vals(), sig));
+            assert (publicKey.verify(hello.values(), sig));
+            assert (publicKey.verifyHashed(hashed.values(), sig));
             let #fp(y2) = C.Fp.add(#fp(publicKey.y), #fp(1));
             let publicKey2 = PublicKey.PublicKey(publicKey.x, y2, curve);
-            assert (not publicKey2.verifyHashed(hashed.vals(), sig));
+            assert (not publicKey2.verifyHashed(hashed.values(), sig));
           };
         },
       );
@@ -521,7 +521,7 @@ for (curveKind in curveKinds.vals()) {
           assert (publicKey.equal(expectedPubKey));
 
           // Verify signature
-          assert (publicKey.verifyHashed(hashed.vals(), expectedSig));
+          assert (publicKey.verifyHashed(hashed.values(), expectedSig));
         },
       );
 
@@ -552,15 +552,15 @@ for (curveKind in curveKinds.vals()) {
           do {
             let uncompressedBytes = publicKey.toBytes(#uncompressed);
             assert (uncompressedBytes == expectedBytes);
-            check(PublicKey.fromBytes(uncompressedBytes.vals(), #raw({ curve })), publicKey);
+            check(PublicKey.fromBytes(uncompressedBytes.values(), #raw({ curve })), publicKey);
           };
           do {
             let compressedBytes = publicKey.toBytes(#compressed);
-            check(PublicKey.fromBytes(compressedBytes.vals(), #raw({ curve })), publicKey);
+            check(PublicKey.fromBytes(compressedBytes.values(), #raw({ curve })), publicKey);
             let #fp(yNeg) = C.Fp.neg(#fp(publicKey.y));
             let publicKeyNeg = PublicKey.PublicKey(publicKey.x, yNeg, curve);
             let compressedBytesNeg = publicKeyNeg.toBytes(#compressed);
-            check(PublicKey.fromBytes(compressedBytesNeg.vals(), #raw({ curve })), publicKeyNeg);
+            check(PublicKey.fromBytes(compressedBytesNeg.values(), #raw({ curve })), publicKeyNeg);
           };
         },
       );
@@ -576,7 +576,7 @@ for (curveKind in curveKinds.vals()) {
           let derBytes = sig.toBytes(#der);
 
           assert (derBytes == expected);
-          let #ok(actualSig) = Signature.fromBytes(derBytes.vals(), curve, #der) else Runtime.trap("Unable to parse signature der bytes");
+          let #ok(actualSig) = Signature.fromBytes(derBytes.values(), curve, #der) else Runtime.trap("Unable to parse signature der bytes");
 
           assert (actualSig.equal(sig));
         },
@@ -672,7 +672,7 @@ for (curveKind in curveKinds.vals()) {
             (-8, [0, 0, 0, -1]),
             (-9, [-9]),
           ];
-          for ((k, v) in tbl.vals()) {
+          for ((k, v) in tbl.values()) {
             let naf = Binary.toNafWidth(k, 5);
             assert (naf == v);
           };
@@ -804,7 +804,7 @@ for (curveKind in curveKinds.vals()) {
             while (j < n) {
               let s = toNat(vTbl[j]);
               let der = tbl[i * n + j];
-              switch (Signature.fromBytes(der.vals(), curve, #der)) {
+              switch (Signature.fromBytes(der.values(), curve, #der)) {
                 case (#err(e)) Runtime.trap("Failed to parse DER Signature: " # e);
                 case (#ok(sig)) {
                   // Calculate expected r and s after normalization
@@ -860,8 +860,8 @@ for (curveKind in curveKinds.vals()) {
             [0x30, 0x06, 0x02, 0x11 /* too large */, 0x00, 0x02, 0x01, 0x00],
             [0x30, 0x06, 0x02, 0x01, 0x80 /*negative*/, 0x02, 0x01, 0x00],
           ];
-          for (b in badTbl.vals()) {
-            switch (Signature.fromBytes(b.vals(), curve, #der)) {
+          for (b in badTbl.values()) {
+            switch (Signature.fromBytes(b.values(), curve, #der)) {
               case (#err(_)) ();
               case (#ok(_)) Runtime.trap("Failed to reject bad DER Signature: " # debug_show (b));
             };
@@ -871,7 +871,7 @@ for (curveKind in curveKinds.vals()) {
             let n = correct.size();
             var i = 0;
             while (i < n) {
-              let b = correct.vals().take(i);
+              let b = correct.values().take(i);
 
               switch (Signature.fromBytes(b, curve, #der)) {
                 case (#err(_)) ();
@@ -898,7 +898,7 @@ for (curveKind in curveKinds.vals()) {
       let rawBytes = Util.toBigEndianPad(32, privateKeyVal);
 
       // Test parsing from raw format
-      let #ok(parsedFromRaw) = PrivateKey.fromBytes(rawBytes.vals(), #raw({ curve })) else Runtime.trap("Failed to parse raw bytes");
+      let #ok(parsedFromRaw) = PrivateKey.fromBytes(rawBytes.values(), #raw({ curve })) else Runtime.trap("Failed to parse raw bytes");
       assert (parsedFromRaw.curve.kind == curve.kind);
       assert (parsedFromRaw.d == privateKeyVal);
       assert (parsedFromRaw.getPublicKey().equal(publicKey));
@@ -921,21 +921,21 @@ for (curveKind in curveKinds.vals()) {
 
       // Empty bytes
       let emptyBytes : [Nat8] = [];
-      assertIsErr(PrivateKey.fromBytes(emptyBytes.vals(), #raw({ curve })), "empty raw");
-      assertIsErr(PrivateKey.fromBytes(emptyBytes.vals(), #pkcs8), "empty der");
+      assertIsErr(PrivateKey.fromBytes(emptyBytes.values(), #raw({ curve })), "empty raw");
+      assertIsErr(PrivateKey.fromBytes(emptyBytes.values(), #pkcs8), "empty der");
 
       // Invalid DER structure
       let invalidDer : [Nat8] = [0x30, 0x03, 0x02, 0x01, 0x01]; // Too short
-      assertIsErr(PrivateKey.fromBytes(invalidDer.vals(), #pkcs8), "invalid der");
+      assertIsErr(PrivateKey.fromBytes(invalidDer.values(), #pkcs8), "invalid der");
 
       // Zero value (invalid for EC private key)
       let zeroKeyRaw = Array.tabulate<Nat8>(32, func(_) = 0);
-      assertIsErr(PrivateKey.fromBytes(zeroKeyRaw.vals(), #raw({ curve })), "zero raw");
+      assertIsErr(PrivateKey.fromBytes(zeroKeyRaw.values(), #raw({ curve })), "zero raw");
 
       // Value >= curve order (invalid for EC private key)
       let tooLargeValue = curve.params.r;
       let tooLargeKeyRaw = Util.toBigEndianPad(32, tooLargeValue);
-      assertIsErr(PrivateKey.fromBytes(tooLargeKeyRaw.vals(), #raw({ curve })), "too large raw");
+      assertIsErr(PrivateKey.fromBytes(tooLargeKeyRaw.values(), #raw({ curve })), "too large raw");
     },
   );
 
@@ -954,7 +954,7 @@ for (curveKind in curveKinds.vals()) {
           "\30\59\30\13\06\07\2a\86\48\ce\3d\02\01\06\08\2a\86\48\ce\3d\03\01\07\03\42\00\04\12\3b\8c\f8\c0\97\44\89\7e\dc\31\52\2d\7c\ad\e9\49\37\b8\43\01\ae\b2\a8\1c\50\58\ed\cf\88\f1\32\0a\21\19\62\72\4f\a3\c4\c1\e4\16\af\1c\3f\9d\78\46\77\53\3d\b9\68\dd\0d\a4\76\28\d0\0f\0b\24\a2",
         );
       };
-      switch (PublicKey.fromBytes(key.vals(), #spki)) {
+      switch (PublicKey.fromBytes(key.values(), #spki)) {
         case (#err(e)) Runtime.trap("Failed to parse public key: " # debug_show (e));
         case (#ok(publicKey)) {
           assert (publicKey.curve.kind == curveKind);
@@ -1168,9 +1168,9 @@ for (curveKind in curveKinds.vals()) {
           ];
         }];
       };
-      for ({ x; y; outputs } in testCases.vals()) {
+      for ({ x; y; outputs } in testCases.values()) {
         let key = PublicKey.PublicKey(x, y, curve);
-        for ({ format; inputFormat; expectedText } in outputs.vals()) {
+        for ({ format; inputFormat; expectedText } in outputs.values()) {
           let actualText = key.toText(format);
           if (actualText != expectedText) {
             Runtime.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
@@ -1316,9 +1316,9 @@ for (curveKind in curveKinds.vals()) {
         }];
         case (#prime256v1) []; // Doesn't differ from secp256k1
       };
-      for ({ d; outputs } in testCases.vals()) {
+      for ({ d; outputs } in testCases.values()) {
         let key = PrivateKey.PrivateKey(d, curve);
-        for ({ format; inputFormat; expectedText } in outputs.vals()) {
+        for ({ format; inputFormat; expectedText } in outputs.values()) {
           let actualText = key.toText(format);
           if (actualText != expectedText) {
             Runtime.trap("Public key text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
@@ -1444,9 +1444,9 @@ for (curveKind in curveKinds.vals()) {
         case (#prime256v1) []; // Doesn't differ from secp256k1
       };
 
-      for ({ r; s; outputs } in testCases.vals()) {
+      for ({ r; s; outputs } in testCases.values()) {
         let signature = Signature.Signature(r, s, curve);
-        for ({ format; inputFormat; expectedText } in outputs.vals()) {
+        for ({ format; inputFormat; expectedText } in outputs.values()) {
           let actualText = signature.toText(format);
           if (actualText != expectedText) {
             Runtime.trap("Signature text mismatch:\nExpected\n" # expectedText # "\nActual\n" # actualText);
@@ -1493,7 +1493,7 @@ test(
       ("LF with trailing CRLF", header # "\n" # line1 # "\n" # line2 # "\n" # footer # "\r\n"),
     ];
 
-    for ((name, pem) in variants.vals()) {
+    for ((name, pem) in variants.values()) {
       switch (PublicKey.fromText(pem, inputFormat)) {
         case (#err(e)) Runtime.trap("Failed to parse PEM variant '" # name # "': " # e);
         case (#ok(parsedKey)) {
