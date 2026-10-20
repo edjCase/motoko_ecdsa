@@ -34,3 +34,7 @@ moc = "1.4.0"
 [toolchain]
 moc = "2.0.0"
 pocket-ic = "15.0.0"
+wasm-opt = "133"
+
+[optimize]
+level = "O3"
