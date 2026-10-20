@@ -29,6 +29,6 @@ test = "2.1.1"
 bench-helper = "0.0.3"
 
 [toolchain]
-moc = "1.7.0"
+moc = "2.0.0"
 pocket-ic = "9.0.3"
 
