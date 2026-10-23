@@ -29,7 +29,7 @@ module {
 
     let priv = ECDSA.PrivateKey(testPrivateKeyValue, curve);
     let pub = priv.getPublicKey();
-    let sig = switch (priv.sign(messageData.vals(), randomData.vals())) {
+    let sig = switch (priv.sign(messageData.values(), randomData.values())) {
       case (#ok s) s;
       case (#err e) Runtime.trap("setup: sign failed: " # e);
     };
@@ -74,22 +74,22 @@ module {
       // publicKey_compressed
       [
         func() = ignore pub.toBytes(#compressed),
-        func() = ignore ECDSA.publicKeyFromBytes(pubCompressed.vals(), #raw({ curve })),
+        func() = ignore ECDSA.publicKeyFromBytes(pubCompressed.values(), #raw({ curve })),
       ],
       // publicKey_uncompressed
       [
         func() = ignore pub.toBytes(#uncompressed),
-        func() = ignore ECDSA.publicKeyFromBytes(pubUncompressed.vals(), #raw({ curve })),
+        func() = ignore ECDSA.publicKeyFromBytes(pubUncompressed.values(), #raw({ curve })),
       ],
       // privateKey_raw
       [
         func() = ignore priv.toBytes(#raw),
-        func() = ignore ECDSA.privateKeyFromBytes(privRaw.vals(), #raw({ curve })),
+        func() = ignore ECDSA.privateKeyFromBytes(privRaw.values(), #raw({ curve })),
       ],
       // signature_der
       [
         func() = ignore sig.toBytes(#der),
-        func() = ignore ECDSA.signatureFromBytes(sigDer.vals(), curve, #der),
+        func() = ignore ECDSA.signatureFromBytes(sigDer.values(), curve, #der),
       ],
       // publicKey_hex
       [

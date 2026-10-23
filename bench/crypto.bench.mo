@@ -33,7 +33,7 @@ module {
       func(ci) {
         let priv = ECDSA.PrivateKey(testPrivateKeyValue, curves[ci]);
         let pub = priv.getPublicKey();
-        let sig = switch (priv.sign(messageData.vals(), randomData.vals())) {
+        let sig = switch (priv.sign(messageData.values(), randomData.values())) {
           case (#ok s) s;
           case (#err e) Runtime.trap("setup: sign failed: " # e);
         };
@@ -47,7 +47,7 @@ module {
       Array.tabulate<() -> ()>(
         curves.size(),
         func(ci) = func() {
-          ignore ECDSA.generatePrivateKey(entropy.vals(), curves[ci]);
+          ignore ECDSA.generatePrivateKey(entropy.values(), curves[ci]);
         },
       ),
       // sign
@@ -55,7 +55,7 @@ module {
         curves.size(),
         func(ci) {
           let priv = keys[ci].priv;
-          func() = ignore priv.sign(messageData.vals(), randomData.vals());
+          func() = ignore priv.sign(messageData.values(), randomData.values());
         },
       ),
       // verify
@@ -64,7 +64,7 @@ module {
         func(ci) {
           let pub = keys[ci].pub;
           let sig = keys[ci].sig;
-          func() = ignore pub.verify(messageData.vals(), sig);
+          func() = ignore pub.verify(messageData.values(), sig);
         },
       ),
     ];

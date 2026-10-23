@@ -144,11 +144,11 @@ module {
       switch (format) {
         case (#hex(hex)) {
           let bytes = toBytes(hex.byteEncoding);
-          BaseX.toHex(bytes.vals(), hex.format);
+          BaseX.toHex(bytes.values(), hex.format);
         };
         case (#base64(base64)) {
           let bytes = toBytes(base64.byteEncoding);
-          BaseX.toBase64(bytes.vals(), base64.format);
+          BaseX.toBase64(bytes.values(), base64.format);
         };
       };
     };
@@ -164,11 +164,11 @@ module {
     switch (encoding) {
       case (#raw) {
         // Extract r and s values
-        let raw = Iter.toArray(bytes);
+        let raw = bytes.toArray();
         if (raw.size() != 64) {
           return #err("Invalid signature: expected exactly 64 bytes for raw encoding");
         };
-        let rawIter = raw.vals();
+        let rawIter = raw.values();
         let ?r = Util.toNatAsBigEndian(rawIter.take(32)) else return #err("Invalid signature: failed to decode r from bytes");
         let ?s = Util.toNatAsBigEndian(rawIter.take(32)) else return #err("Invalid signature: failed to decode s from bytes");
 
@@ -204,7 +204,7 @@ module {
         // Convert hex to bytes
         switch (BaseX.fromHex(value, format)) {
           case (#ok(bytes)) {
-            switch (fromBytes(bytes.vals(), curve, byteEncoding)) {
+            switch (fromBytes(bytes.values(), curve, byteEncoding)) {
               case (#ok(signature)) #ok(signature);
               case (#err(e)) #err("Invalid signature bytes: " # e);
             };
@@ -216,7 +216,7 @@ module {
         // Convert base64 to bytes
         switch (BaseX.fromBase64(value)) {
           case (#ok(bytes)) {
-            switch (fromBytes(bytes.vals(), curve, byteEncoding)) {
+            switch (fromBytes(bytes.values(), curve, byteEncoding)) {
               case (#ok(signature)) #ok(signature);
               case (#err(e)) #err("Invalid signature bytes: " # e);
             };
