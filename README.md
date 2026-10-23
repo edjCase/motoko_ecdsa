@@ -204,6 +204,26 @@ public type SignatureOutputTextFormat = {
 };
 ```
 
+## Publishing
+
+You must be a maintainer of the `ecdsa` package on [mops](https://mops.one) to publish.
+
+Bump the version:
+
+```bash
+mops bump <major|minor|patch>
+```
+
+See [mops bump docs](https://docs.mops.one/cli/mops-bump) for details.
+
+Then publish:
+
+```bash
+mops publish
+```
+
+See [mops publish docs](https://docs.mops.one/cli/mops-publish) for details.
+
 ## Original Project
 
 If you'd like to support the original project:
